@@ -345,6 +345,15 @@ class DiagramGenerator:
                 infra_items.append((node_id, clean_d))
 
         if infra_items:
+            # Deduplicate items by node_id while preserving order
+            seen_ids: Set[str] = set()
+            deduped_infra: List[tuple] = []
+            for node_id, label in infra_items:
+                if node_id not in seen_ids:
+                    seen_ids.add(node_id)
+                    deduped_infra.append((node_id, label))
+            infra_items = deduped_infra
+
             lines.append('    subgraph SUB_INFRA["Infrastructure"]')
             for node_id, label in infra_items:
                 clean_lbl = re.sub(r'["\[\]\(\)\{\}]', '', label)
