@@ -278,8 +278,9 @@ class DiagramGenerator:
         lines = ["graph TD"]
 
         # Root node
-        lang_str = repo_info.language or "Multi-language"
-        lines.append(f'    ROOT["{repo_info.name}<br/>{lang_str} {project_type}"]')
+        clean_name = re.sub(r'["\[\]\(\)\{\}]', '', repo_info.name)
+        clean_lang = re.sub(r'["\[\]\(\)\{\}]', '', repo_info.language or "Multi-language")
+        lines.append(f'    ROOT["{clean_name}<br/>{clean_lang} {project_type}"]')
         lines.append(f'    style ROOT fill:#4f46e5,stroke:#3730a3,color:#fff')
 
         # Group directories by category
@@ -307,51 +308,53 @@ class DiagramGenerator:
 
         # Source code subgraph
         if source_dirs:
-            lines.append('    subgraph SRC["Source Code"]')
+            lines.append('    subgraph SUB_SRC["Source Code"]')
             for d in source_dirs[:8]:  # Limit to prevent giant diagrams
-                node_id = self._sanitize_id(d)
-                label = self.FRAMEWORK_DIRS.get(d.lower(), d)
-                label = label.title() if label != d else d
-                lines.append(f'        {node_id}["{d}/"]')
+                node_id = f"SRC_{self._sanitize_id(d)}"
+                clean_d = re.sub(r'["\[\]\(\)\{\}]', '', d)
+                lines.append(f'        {node_id}["{clean_d}/"]')
             lines.append('    end')
-            lines.append('    ROOT --> SRC')
-            lines.append('    style SRC fill:#1e1b4b,stroke:#4f46e5,color:#c7d2fe')
+            first_src_id = f"SRC_{self._sanitize_id(source_dirs[0])}"
+            lines.append(f'    ROOT --> {first_src_id}')
+            lines.append('    style SUB_SRC fill:#1e1b4b,stroke:#4f46e5,color:#c7d2fe')
 
         # Support subgraph
         if support_dirs:
-            lines.append('    subgraph SUPPORT["Support & Config"]')
+            lines.append('    subgraph SUB_SUPPORT["Support & Config"]')
             for d in support_dirs[:6]:
-                node_id = self._sanitize_id(d)
-                label = self.FRAMEWORK_DIRS.get(d.lower(), d)
-                lines.append(f'        {node_id}["{d}/"]')
+                node_id = f"SUP_{self._sanitize_id(d)}"
+                clean_d = re.sub(r'["\[\]\(\)\{\}]', '', d)
+                lines.append(f'        {node_id}["{clean_d}/"]')
             lines.append('    end')
-            lines.append('    ROOT --> SUPPORT')
-            lines.append('    style SUPPORT fill:#1e1b4b,stroke:#6366f1,color:#c7d2fe')
+            first_sup_id = f"SUP_{self._sanitize_id(support_dirs[0])}"
+            lines.append(f'    ROOT --> {first_sup_id}')
+            lines.append('    style SUB_SUPPORT fill:#1e1b4b,stroke:#6366f1,color:#c7d2fe')
 
         # Infrastructure subgraph
         infra_items = []
         if infra.get("docker"):
-            infra_items.append(("DOCKER", "Docker", "fa:fa-docker"))
+            infra_items.append(("INFRA_DOCKER", "Docker"))
         if infra.get("ci"):
-            infra_items.append(("CI", "CI/CD", "fa:fa-cogs"))
+            infra_items.append(("INFRA_CI", "CI/CD"))
         if infra.get("database"):
-            infra_items.append(("DB", "Database", "fa:fa-database"))
+            infra_items.append(("INFRA_DB", "Database"))
         if infra_dirs:
             for d in infra_dirs[:4]:
-                node_id = self._sanitize_id(d)
-                infra_items.append((node_id, d, ""))
+                node_id = f"INFRA_{self._sanitize_id(d)}"
+                clean_d = re.sub(r'["\[\]\(\)\{\}]', '', d)
+                infra_items.append((node_id, clean_d))
 
         if infra_items:
-            lines.append('    subgraph INFRA["Infrastructure"]')
-            for node_id, label, _icon in infra_items:
-                lines.append(f'        {node_id}["{label}"]')
+            lines.append('    subgraph SUB_INFRA["Infrastructure"]')
+            for node_id, label in infra_items:
+                clean_lbl = re.sub(r'["\[\]\(\)\{\}]', '', label)
+                lines.append(f'        {node_id}["{clean_lbl}"]')
             lines.append('    end')
-            lines.append('    ROOT --> INFRA')
-            lines.append('    style INFRA fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe')
+            lines.append(f'    ROOT --> {infra_items[0][0]}')
+            lines.append('    style SUB_INFRA fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe')
 
         # Add relationships between source dirs if applicable
         if len(source_dirs) >= 2:
-            # Common relationship patterns
             dir_set = {d.lower() for d in source_dirs}
             relationships = [
                 ("routers", "services", "calls"),
@@ -367,15 +370,14 @@ class DiagramGenerator:
             ]
             for src, dst, label in relationships:
                 if src in dir_set and dst in dir_set:
-                    src_id = self._sanitize_id(src)
-                    dst_id = self._sanitize_id(dst)
-                    # Find original case
+                    src_id = f"SRC_{self._sanitize_id(src)}"
+                    dst_id = f"SRC_{self._sanitize_id(dst)}"
                     for d in source_dirs:
                         if d.lower() == src:
-                            src_id = self._sanitize_id(d)
+                            src_id = f"SRC_{self._sanitize_id(d)}"
                         if d.lower() == dst:
-                            dst_id = self._sanitize_id(d)
-                    lines.append(f'    {src_id} -->|"{label}"| {dst_id}')
+                            dst_id = f"SRC_{self._sanitize_id(d)}"
+                    lines.append(f'    {src_id} -->|{label}| {dst_id}')
 
         # Languages section (if multiple)
         if len(languages) > 1:
@@ -385,7 +387,7 @@ class DiagramGenerator:
             for lang, bytes_count in top_langs:
                 pct = (bytes_count / total * 100) if total > 0 else 0
                 lang_parts.append(f"{lang} {pct:.0f}%")
-            lang_label = " | ".join(lang_parts)
+            lang_label = " • ".join(lang_parts)
             lines.append(f'    LANGS["{lang_label}"]')
             lines.append(f'    style LANGS fill:#0f172a,stroke:#475569,color:#94a3b8')
             lines.append(f'    ROOT -.- LANGS')

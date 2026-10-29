@@ -18,6 +18,7 @@ export function MermaidDiagram({ chart, darkMode }) {
         setRenderError(null);
         mermaid.initialize({
           startOnLoad: false,
+          suppressErrorRendering: true,
           theme: darkMode ? 'dark' : 'neutral',
           themeVariables: darkMode
             ? {
@@ -41,6 +42,11 @@ export function MermaidDiagram({ chart, darkMode }) {
           fontFamily: 'Inter, system-ui, sans-serif',
         });
 
+        // Clean up any stray error elements Mermaid may have injected into document.body
+        document.querySelectorAll('[id^="dmermaid"], [id^="mermaid-"]').forEach((el) => {
+          if (el.parentElement === document.body) el.remove();
+        });
+
         const id = `mermaid-${Math.random().toString(36).substring(2, 9)}`;
         const { svg } = await mermaid.render(id, chart);
 
@@ -49,6 +55,10 @@ export function MermaidDiagram({ chart, darkMode }) {
         }
       } catch (err) {
         console.error('Mermaid render error:', err);
+        // Clean up any error SVGs Mermaid injected into document.body
+        document.querySelectorAll('[id^="dmermaid"], [id^="mermaid-"]').forEach((el) => {
+          if (el.parentElement === document.body) el.remove();
+        });
         if (isMounted) {
           setRenderError('Could not render architecture diagram graphically. Raw markup displayed below.');
         }

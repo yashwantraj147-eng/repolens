@@ -93,7 +93,7 @@ class GitHubClient:
         for attempt in range(self.rate_limiter.max_retries + 1):
             await self.rate_limiter.wait_if_needed()
 
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.request(
                     method, url, headers=self._headers, params=params
                 )
@@ -172,7 +172,7 @@ class GitHubClient:
             README content as a string, or None if not found.
         """
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.get(
                     f"{self.base_url}/repos/{owner}/{repo}/readme",
                     headers={**self._headers, "Accept": "application/vnd.github.raw+json"},
