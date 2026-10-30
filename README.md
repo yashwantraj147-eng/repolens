@@ -5,18 +5,26 @@
 **Instant architecture diagrams, plain-English summaries, contributor onboarding guides, and health scores for any GitHub repository.**
 
 [![CI](https://github.com/yashwantraj147-eng/repolens/actions/workflows/ci.yml/badge.svg)](https://github.com/yashwantraj147-eng/repolens/actions)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/yashwantraj147-eng/repolens)
+[![Scoring Engine Coverage](https://img.shields.io/badge/scoring%20engine%20coverage-100%25-brightgreen.svg)](https://github.com/yashwantraj147-eng/repolens)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC.svg)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[Features](#-key-features) • [Architecture](#-architecture) • [Scoring Rubric](#-7-point-health-score-rubric) • [Quick Start](#-quick-start) • [Docker](#-docker--compose) • [API Docs](#-api-reference) • [Roadmap](#-roadmap)
+[Features](#-key-features) • [Preview](#-preview) • [Architecture](#-architecture) • [Scoring Rubric](#-7-point-health-score-rubric) • [Quick Start](#-quick-start) • [Docker](#-docker--compose) • [API Docs](#-api-reference)
 
 ---
 
 </div>
+
+## 📸 Preview
+
+<p align="center">
+  <img src="resources/preview.svg" alt="RepoLens Report Dashboard Preview with Health Rubric and Mermaid Diagram" width="100%">
+</p>
+
+---
 
 ## 💡 What is RepoLens?
 
