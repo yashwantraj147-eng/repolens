@@ -51,19 +51,28 @@ export function App() {
     }
   }, [darkMode]);
 
-  // Load report from URL query parameter if present
+  // Load report from URL query parameter if present (?report_id=..., ?repo=owner/repo, or ?url=...)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const reportId = params.get('report_id');
+      const repoParam = params.get('repo') || params.get('url');
+
       if (reportId && !report) {
         loadReport(reportId).catch(() => {
           // If loading fails, clear param and return to input
           window.history.replaceState({}, '', window.location.pathname);
         });
+      } else if (repoParam && !report && !loading) {
+        const fullUrl = repoParam.startsWith('http')
+          ? repoParam
+          : `https://github.com/${repoParam}`;
+        analyze(fullUrl).catch(() => {
+          window.history.replaceState({}, '', window.location.pathname);
+        });
       }
     }
-  }, [loadReport]);
+  }, [loadReport, analyze]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-indigo-500 selection:text-white">

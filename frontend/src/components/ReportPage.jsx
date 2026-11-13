@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Star,
   GitFork,
@@ -10,15 +10,39 @@ import {
   Code,
   Shield,
   RotateCcw,
+  Download,
+  Printer,
+  FileText,
+  ChevronDown,
 } from 'lucide-react';
 import { ScoreCard } from './ScoreCard';
 import { ScoreBreakdown } from './ScoreBreakdown';
 import { MermaidDiagram } from './MermaidDiagram';
 import { SummarySection } from './SummarySection';
 import { OnboardingGuide } from './OnboardingGuide';
+import { BadgeModal } from './BadgeModal';
+import {
+  generateMarkdownReport,
+  generateContributingGuide,
+  downloadTextFile,
+} from '../utils/exportHelpers';
 
 export function ReportPage({ report, onReset, darkMode }) {
   const [copiedShare, setCopiedShare] = useState(false);
+  const [badgeModalOpen, setBadgeModalOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportMenuRef = useRef(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
+        setExportOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!report) return null;
 
@@ -26,10 +50,29 @@ export function ReportPage({ report, onReset, darkMode }) {
 
   const handleShare = () => {
     if (typeof window !== 'undefined') {
-      const shareUrl = `${window.location.origin}${window.location.pathname}?report_id=${report.report_id}`;
+      const shareUrl = `${window.location.origin}${window.location.pathname}?repo=${encodeURIComponent(`${repo.owner}/${repo.name}`)}`;
       navigator.clipboard.writeText(shareUrl);
       setCopiedShare(true);
       setTimeout(() => setCopiedShare(false), 2500);
+    }
+  };
+
+  const handleDownloadMarkdown = () => {
+    const md = generateMarkdownReport(report);
+    downloadTextFile(`RepoLens-Audit-${repo.owner}-${repo.name}.md`, md);
+    setExportOpen(false);
+  };
+
+  const handleDownloadContributing = () => {
+    const md = generateContributingGuide(report);
+    downloadTextFile('CONTRIBUTING.md', md);
+    setExportOpen(false);
+  };
+
+  const handlePrint = () => {
+    setExportOpen(false);
+    if (typeof window !== 'undefined') {
+      window.print();
     }
   };
 
@@ -104,25 +147,90 @@ export function ReportPage({ report, onReset, darkMode }) {
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0 no-print">
+            {/* Embed Badge Button */}
+            <button
+              type="button"
+              onClick={() => setBadgeModalOpen(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/70 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition-colors shadow-xs"
+              title="Get vector SVG badge for README"
+            >
+              <Shield className="w-4 h-4 text-indigo-500" />
+              <span>Embed Badge</span>
+            </button>
+
+            {/* Export Dropdown */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => setExportOpen((prev) => !prev)}
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {exportOpen && (
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl py-2 z-30 text-xs animate-fadeIn">
+                  <button
+                    type="button"
+                    onClick={handleDownloadMarkdown}
+                    className="w-full px-4 py-2 text-left flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+                  >
+                    <FileText className="w-4 h-4 text-indigo-500" />
+                    <div>
+                      <div className="font-semibold">Download Audit (.md)</div>
+                      <div className="text-[10px] text-slate-400">Full analysis & diagram</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadContributing}
+                    className="w-full px-4 py-2 text-left flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+                  >
+                    <Code className="w-4 h-4 text-emerald-500" />
+                    <div>
+                      <div className="font-semibold">CONTRIBUTING.md</div>
+                      <div className="text-[10px] text-slate-400">Ready for repo root</div>
+                    </div>
+                  </button>
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="w-full px-4 py-2 text-left flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+                  >
+                    <Printer className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <div className="font-semibold">Print / Save as PDF</div>
+                      <div className="text-[10px] text-slate-400">Print-optimized layout</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Share Button */}
             <button
               type="button"
               onClick={handleShare}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
             >
               {copiedShare ? (
                 <>
                   <Check className="w-4 h-4 text-emerald-500" />
-                  <span className="text-emerald-600 dark:text-emerald-400">Link Copied!</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">Copied!</span>
                 </>
               ) : (
                 <>
                   <Share2 className="w-4 h-4" />
-                  <span>Share Report</span>
+                  <span>Share</span>
                 </>
               )}
             </button>
 
+            {/* New Analysis Button */}
             <button
               type="button"
               onClick={onReset}
@@ -153,7 +261,14 @@ export function ReportPage({ report, onReset, darkMode }) {
 
       {/* Contributor Onboarding Guide */}
       <OnboardingGuide guide={onboarding_guide} repoName={repo.name} />
+
+      {/* Badge Embed Modal */}
+      <BadgeModal
+        isOpen={badgeModalOpen}
+        onClose={() => setBadgeModalOpen(false)}
+        repo={repo}
+        report={report}
+      />
     </div>
   );
 }
-

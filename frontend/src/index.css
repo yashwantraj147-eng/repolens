@@ -35,3 +35,37 @@
   background: rgba(75, 85, 99, 0.8);
 }
 
+/* Print styles for clean one-click PDF export */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide interactive elements, buttons, navbars, and footer */
+  header,
+  footer,
+  .no-print,
+  button {
+    display: none !important;
+  }
+
+  /* Prevent awkward page breaks inside cards and diagrams */
+  .rounded-3xl,
+  .rounded-2xl,
+  .print-break-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Ensure clear contrast in print */
+  h1, h2, h3, h4, p, span, div, pre, code {
+    color: #0f172a !important;
+  }
+}

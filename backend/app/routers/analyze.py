@@ -50,7 +50,7 @@ def get_report_cache() -> Dict[str, AnalysisReport]:
 )
 async def analyze_repo(
     request: AnalyzeRequest,
-    response: Response,
+    response: Response = Response(),
 ) -> AnalysisReport:
     """Analyze a public GitHub repository.
 
