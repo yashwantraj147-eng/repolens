@@ -30,6 +30,11 @@ class AnalyzeRequest(BaseModel):
         """Validate that the URL is a valid GitHub repository URL."""
         from app.utils.validators import parse_github_url
 
+        v = v.strip()
+        if not v.startswith("http://") and not v.startswith("https://") and not v.startswith("github.com/"):
+            if "/" in v and len(v.split("/")) == 2:
+                v = f"https://github.com/{v}"
+
         owner, repo = parse_github_url(v)
         # Normalize to canonical form
         return f"https://github.com/{owner}/{repo}"
@@ -141,4 +146,71 @@ class RecentReportItem(BaseModel):
     overall_score: int = Field(..., ge=0, le=100, description="Overall health score")
     grade: str = Field(..., description="Letter grade")
     generated_at: datetime = Field(..., description="When the report was generated")
+
+
+class CompareRequest(BaseModel):
+    """Request body for head-to-head repository comparison."""
+
+    repo_a: str = Field(..., description="First GitHub repository URL or owner/repo")
+    repo_b: str = Field(..., description="Second GitHub repository URL or owner/repo")
+    force_refresh: bool = Field(
+        default=False,
+        description="Bypass cache and force fresh analysis for both repositories",
+    )
+
+    @field_validator("repo_a", "repo_b")
+    @classmethod
+    def validate_repo_urls(cls, v: str) -> str:
+        """Validate and normalize repository URL."""
+        from app.utils.validators import parse_github_url
+
+        v = v.strip()
+        if not v.startswith("http://") and not v.startswith("https://") and not v.startswith("github.com/"):
+            if "/" in v and len(v.split("/")) == 2:
+                v = f"https://github.com/{v}"
+
+        owner, repo = parse_github_url(v)
+        return f"https://github.com/{owner}/{repo}"
+
+
+class CategoryComparison(BaseModel):
+    """Comparison metric for a specific score category."""
+
+    category: ScoreCategoryName = Field(..., description="Category identifier")
+    name: str = Field(..., description="Category display name")
+    score_a: int = Field(..., description="Score for repo A")
+    score_b: int = Field(..., description="Score for repo B")
+    winner: str = Field(..., description="'repo_a', 'repo_b', or 'tie'")
+    diff: int = Field(..., description="Score difference (repo_a - repo_b)")
+    details_a: str = Field(..., description="Finding details for repo A")
+    details_b: str = Field(..., description="Finding details for repo B")
+
+
+class MetricComparison(BaseModel):
+    """Comparison of community and activity metrics."""
+
+    stars_diff: int = Field(..., description="Difference in stars (A - B)")
+    forks_diff: int = Field(..., description="Difference in forks (A - B)")
+    open_issues_diff: int = Field(..., description="Difference in open issues (A - B)")
+    stars_winner: str = Field(..., description="'repo_a', 'repo_b', or 'tie'")
+    forks_winner: str = Field(..., description="'repo_a', 'repo_b', or 'tie'")
+
+
+class ComparisonMetrics(BaseModel):
+    """Full comparison analysis between two repositories."""
+
+    overall_winner: str = Field(..., description="'repo_a', 'repo_b', or 'tie'")
+    score_diff: int = Field(..., description="Overall health score diff (A - B)")
+    categories: list[CategoryComparison] = Field(..., description="Per-category comparisons")
+    metrics: MetricComparison = Field(..., description="Community metrics comparison")
+    verdict_summary: str = Field(..., description="Plain-English comparison conclusion")
+
+
+class CompareResponse(BaseModel):
+    """Response returned by /api/compare."""
+
+    repo_a: AnalysisReport = Field(..., description="Full analysis for repo A")
+    repo_b: AnalysisReport = Field(..., description="Full analysis for repo B")
+    comparison: ComparisonMetrics = Field(..., description="Comparative metrics and verdict")
+
 

@@ -185,3 +185,4 @@ export function generateContributingGuide(report) {
 
   return md;
 }
+

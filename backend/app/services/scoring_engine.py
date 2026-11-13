@@ -14,13 +14,14 @@ from app.models.schemas import HealthScore, RepoInfo, ScoreCategory
 
 # Category weights (must sum to 1.0)
 CATEGORY_WEIGHTS: Dict[ScoreCategoryName, float] = {
-    ScoreCategoryName.README_QUALITY: 0.20,
+    ScoreCategoryName.README_QUALITY: 0.15,
+    ScoreCategoryName.TEST_PRESENCE: 0.15,
+    ScoreCategoryName.SECURITY_POSTURE: 0.15,
     ScoreCategoryName.COMMIT_ACTIVITY: 0.15,
-    ScoreCategoryName.ISSUE_RESPONSE_TIME: 0.10,
-    ScoreCategoryName.TEST_PRESENCE: 0.20,
-    ScoreCategoryName.LICENSE: 0.10,
     ScoreCategoryName.DOCUMENTATION: 0.15,
     ScoreCategoryName.CI_SETUP: 0.10,
+    ScoreCategoryName.ISSUE_RESPONSE_TIME: 0.10,
+    ScoreCategoryName.LICENSE: 0.05,
 }
 
 
@@ -91,6 +92,9 @@ class ScoringEngine:
                 repo_info, file_paths
             ),
             ScoreCategoryName.CI_SETUP: self.score_ci_setup(file_paths),
+            ScoreCategoryName.SECURITY_POSTURE: self.score_security_posture(
+                file_paths, readme_content
+            ),
         }
 
         # Calculate weighted overall score
@@ -627,5 +631,119 @@ class ScoringEngine:
         return ScoreCategory(
             score=score,
             weight=self.weights[ScoreCategoryName.CI_SETUP],
+            details="; ".join(findings),
+        )
+
+    def score_security_posture(
+        self,
+        file_paths: List[str],
+        readme_content: Optional[str] = None,
+    ) -> ScoreCategory:
+        """Evaluate repository security posture and supply chain hygiene.
+
+        Checks for:
+        - SECURITY.md policy (up to 35 points)
+        - Automated security scanners / Dependabot / Renovate / CodeQL (up to 35 points)
+        - Deterministic lockfile presence for supply chain integrity (20 points)
+        - Vulnerability disclosure contact / instructions (10 points)
+
+        Args:
+            file_paths: List of file paths in the repository.
+            readme_content: Optional README content to check for security policy details.
+
+        Returns:
+            ScoreCategory with score, weight, and findings details.
+        """
+        score = 0
+        findings: list[str] = []
+        lower_paths = [p.lower() for p in file_paths]
+
+        # 1. SECURITY.md policy
+        has_security_md = any(
+            p in ("security.md", ".github/security.md", "docs/security.md")
+            or p.endswith("/security.md")
+            for p in lower_paths
+        )
+        if has_security_md:
+            score += 35
+            findings.append("SECURITY.md policy defined")
+        else:
+            findings.append("Missing SECURITY.md")
+
+        # 2. Automated scanners & dependency bots
+        scanners_found: list[str] = []
+        has_dependabot = any(
+            p in (".github/dependabot.yml", ".github/dependabot.yaml", "dependabot.yml")
+            for p in lower_paths
+        )
+        if has_dependabot:
+            scanners_found.append("Dependabot")
+
+        has_renovate = any(
+            p in ("renovate.json", ".renovaterc", ".renovaterc.json", "renovate.json5")
+            or ".github/renovate.json" in p
+            for p in lower_paths
+        )
+        if has_renovate:
+            scanners_found.append("Renovate")
+
+        has_codeql = any(
+            "codeql" in p for p in lower_paths
+        )
+        if has_codeql:
+            scanners_found.append("CodeQL")
+
+        has_security_scanner = any(
+            any(tool in p for tool in ["snyk", "trivy", "semgrep", "sonar", "bandit", "gitleaks", "trufflehog"])
+            for p in lower_paths
+        )
+        if has_security_scanner:
+            scanners_found.append("SAST/Secret Scanner")
+
+        if len(scanners_found) >= 2:
+            score += 35
+            findings.append(f"Automated security tooling: {', '.join(scanners_found)}")
+        elif len(scanners_found) == 1:
+            score += 25
+            findings.append(f"Automated security tooling: {scanners_found[0]}")
+        else:
+            findings.append("No automated security scanners/bots detected")
+
+        # 3. Deterministic lockfile
+        lockfiles = {
+            "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb",
+            "poetry.lock", "pipfile.lock", "requirements.lock",
+            "cargo.lock", "go.sum", "composer.lock", "gemfile.lock", "flake.lock",
+        }
+        found_lockfiles = [p for p in lower_paths if any(p.endswith(lf) for lf in lockfiles)]
+        if found_lockfiles:
+            score += 20
+            findings.append("Lockfile present (supply-chain integrity)")
+        else:
+            findings.append("No lockfile detected")
+
+        # 4. Vulnerability disclosure contact / policy
+        has_disclosure_info = False
+        if readme_content:
+            lower_readme = readme_content.lower()
+            disclosure_patterns = [
+                r"vulnerability",
+                r"security\s+policy",
+                r"responsible\s+disclosure",
+                r"security@",
+                r"hackerone\.com",
+                r"bugcrowd\.com",
+                r"cve-",
+            ]
+            if any(re.search(pat, lower_readme) for pat in disclosure_patterns):
+                has_disclosure_info = True
+
+        if has_disclosure_info or has_security_md:
+            score += 10
+            findings.append("Vulnerability disclosure channel defined")
+
+        return ScoreCategory(
+            score=min(100, score),
+            weight=self.weights[ScoreCategoryName.SECURITY_POSTURE],
             details="; ".join(findings),
         )

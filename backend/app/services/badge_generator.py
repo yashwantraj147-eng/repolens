@@ -125,3 +125,4 @@ def generate_badge_svg(
 </svg>"""
 
     return svg.strip()
+

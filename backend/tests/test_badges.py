@@ -87,3 +87,4 @@ class TestBadgeEndpoints:
         response = client.get("/api/badge/octocat/hello-world.svg?style=for-the-badge")
         assert response.status_code == 200
         assert 'height="28"' in response.text
+

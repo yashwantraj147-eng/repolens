@@ -90,6 +90,49 @@ export async function getReportById(reportId) {
 }
 
 /**
+ * Compare two repositories head-to-head.
+ * @param {string} repoA
+ * @param {string} repoB
+ * @param {boolean} forceRefresh
+ * @returns {Promise<object>} CompareResponse
+ */
+export async function compareRepositories(repoA, repoB, forceRefresh = false) {
+  try {
+    const response = await fetch(`${API_BASE}/api/compare`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        repo_a: repoA,
+        repo_b: repoB,
+        force_refresh: forceRefresh,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      let message = data.detail || 'Failed to compare repositories';
+      if (Array.isArray(data.detail)) {
+        message = data.detail.map((err) => err.msg || JSON.stringify(err)).join(', ');
+      }
+      throw new ApiError(message, response.status, data);
+    }
+
+    return data;
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(
+      err.message === 'Failed to fetch'
+        ? 'Cannot connect to backend server. Make sure it is running on port 8000.'
+        : err.message,
+      0
+    );
+  }
+}
+
+/**
  * Check backend health status.
  */
 export async function checkBackendHealth() {

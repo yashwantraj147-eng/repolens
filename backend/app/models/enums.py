@@ -13,6 +13,7 @@ class ScoreCategoryName(str, Enum):
     LICENSE = "license"
     DOCUMENTATION = "documentation"
     CI_SETUP = "ci_setup"
+    SECURITY_POSTURE = "security_posture"
 
 
 class AnalysisStatus(str, Enum):

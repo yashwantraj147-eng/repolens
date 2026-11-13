@@ -8,6 +8,7 @@ import {
   BookOpen,
   CheckCircle,
   HelpCircle,
+  ShieldCheck,
 } from 'lucide-react';
 
 const CATEGORY_META = {
@@ -52,6 +53,12 @@ const CATEGORY_META = {
     icon: CheckCircle,
     color: 'text-teal-500',
     barColor: 'bg-teal-500',
+  },
+  security_posture: {
+    title: 'Security & Supply Chain',
+    icon: ShieldCheck,
+    color: 'text-rose-500',
+    barColor: 'bg-rose-500',
   },
 };
 

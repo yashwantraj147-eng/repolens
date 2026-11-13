@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import analyze, badges, health, reports
+from app.routers import analyze, badges, compare, health, reports
 
 # Configure logging
 logging.basicConfig(
@@ -86,6 +86,7 @@ def create_app() -> FastAPI:
     app.include_router(analyze.router)
     app.include_router(reports.router)
     app.include_router(badges.router)
+    app.include_router(compare.router)
 
     return app
 

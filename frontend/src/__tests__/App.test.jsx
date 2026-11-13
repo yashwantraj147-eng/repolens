@@ -20,8 +20,9 @@ describe('App Component', () => {
 
     const brandElements = screen.getAllByText('RepoLens');
     expect(brandElements.length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Instant architecture diagrams & health scores/i)).toBeInTheDocument();
+    expect(screen.getByText(/Instant architecture diagrams/i)).toBeInTheDocument();
     expect(screen.getByText('Mermaid Diagrams')).toBeInTheDocument();
-    expect(screen.getByText('7-Point Health Score')).toBeInTheDocument();
+    expect(screen.getByText('8-Point Health Score')).toBeInTheDocument();
+    expect(screen.getByText('RepoLens Compare')).toBeInTheDocument();
   });
 });

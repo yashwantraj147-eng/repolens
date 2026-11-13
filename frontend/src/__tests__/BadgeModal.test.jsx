@@ -79,3 +79,4 @@ describe('BadgeModal Component', () => {
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 });
+

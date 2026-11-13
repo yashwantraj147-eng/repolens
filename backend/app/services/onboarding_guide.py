@@ -8,9 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from app.config import Settings
 from app.models.schemas import RepoInfo
-from app.services.llm.base import LLMProvider
-from app.services.llm.local import LocalProvider
-from app.services.llm.openai import OpenAIProvider
+from app.services.llm import LLMProvider, create_llm_provider
 
 
 class OnboardingGuideGenerator:
@@ -27,21 +25,7 @@ class OnboardingGuideGenerator:
             settings: Application settings for LLM configuration.
         """
         self.settings = settings
-        self.llm: LLMProvider = self._create_provider()
-
-    def _create_provider(self) -> LLMProvider:
-        """Create the appropriate LLM provider based on settings.
-
-        Returns:
-            An LLM provider instance.
-        """
-        if self.settings.openai_api_key:
-            return OpenAIProvider(
-                api_key=self.settings.openai_api_key,
-                base_url=self.settings.openai_base_url or "https://api.openai.com/v1",
-                model=self.settings.llm_model,
-            )
-        return LocalProvider()
+        self.llm: LLMProvider = create_llm_provider(settings)
 
     async def generate(
         self,

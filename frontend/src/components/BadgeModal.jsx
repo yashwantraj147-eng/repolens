@@ -207,3 +207,4 @@ export function BadgeModal({ repo, report, isOpen, onClose }) {
     </div>
   );
 }
+

@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { RepoInput } from './components/RepoInput';
 import { ReportPage } from './components/ReportPage';
+import { CompareInput } from './components/CompareInput';
+import { ComparePage } from './components/ComparePage';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorAlert } from './components/ErrorAlert';
 import { useAnalyze } from './hooks/useAnalyze';
-import { getRecentReports } from './utils/api';
+import { getRecentReports, compareRepositories } from './utils/api';
 import {
   GitFork,
   Sparkles,
@@ -16,6 +18,7 @@ import {
   Terminal,
   History,
   Star,
+  Scale,
 } from 'lucide-react';
 
 export function App() {
@@ -28,17 +31,22 @@ export function App() {
     return false;
   });
 
+  const [mode, setMode] = useState('single'); // 'single' | 'compare'
+  const [compareData, setCompareData] = useState(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState(null);
+
   const { report, loading, error, analyze, loadReport, reset } = useAnalyze();
   const [recentReports, setRecentReports] = useState([]);
 
   // Fetch recent reports on mount and when returning to landing
   useEffect(() => {
-    if (!report && !loading) {
+    if (!report && !compareData && !loading && !compareLoading) {
       getRecentReports(4)
         .then((items) => setRecentReports(items || []))
         .catch(() => setRecentReports([]));
     }
-  }, [report, loading]);
+  }, [report, compareData, loading, compareLoading]);
 
   // Sync dark class on document root
   useEffect(() => {
@@ -51,16 +59,54 @@ export function App() {
     }
   }, [darkMode]);
 
-  // Load report from URL query parameter if present (?report_id=..., ?repo=owner/repo, or ?url=...)
+  const handleCompare = async (repoA, repoB, forceRefresh = false) => {
+    setCompareLoading(true);
+    setCompareError(null);
+    try {
+      const data = await compareRepositories(repoA, repoB, forceRefresh);
+      setCompareData(data);
+      if (typeof window !== 'undefined' && window.history) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('compare', `${repoA},${repoB}`);
+        window.history.pushState({}, '', url.toString());
+      }
+    } catch (err) {
+      setCompareError(err.message || 'Failed to compare repositories.');
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
+  const handleResetCompare = () => {
+    setCompareData(null);
+    setCompareError(null);
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.pushState({}, '', window.location.pathname);
+    }
+  };
+
+  const handleSelectReportFromCompare = async (reportId) => {
+    setCompareData(null);
+    setMode('single');
+    await loadReport(reportId);
+  };
+
+  // Load report or comparison from URL query parameters on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const reportId = params.get('report_id');
       const repoParam = params.get('repo') || params.get('url');
+      const compareParam = params.get('compare');
 
-      if (reportId && !report) {
+      if (compareParam && !compareData && !compareLoading) {
+        setMode('compare');
+        const parts = compareParam.split(',');
+        if (parts.length === 2) {
+          handleCompare(parts[0], parts[1]);
+        }
+      } else if (reportId && !report) {
         loadReport(reportId).catch(() => {
-          // If loading fails, clear param and return to input
           window.history.replaceState({}, '', window.location.pathname);
         });
       } else if (repoParam && !report && !loading) {
@@ -72,51 +118,107 @@ export function App() {
         });
       }
     }
-  }, [loadReport, analyze]);
+  }, []);
+
+  const handleGlobalReset = () => {
+    reset();
+    handleResetCompare();
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-indigo-500 selection:text-white">
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} onReset={reset} />
+      <Header darkMode={darkMode} setDarkMode={setDarkMode} onReset={handleGlobalReset} />
 
       <main className="flex-1 pb-16">
-        {loading && <LoadingSpinner />}
+        {(loading || compareLoading) && <LoadingSpinner />}
 
-        {error && !loading && (
+        {(error || compareError) && !loading && !compareLoading && (
           <div className="max-w-3xl mx-auto px-4 mt-8">
-            <ErrorAlert message={error} onRetry={() => reset()} />
+            <ErrorAlert
+              message={error || compareError}
+              onRetry={() => {
+                if (error) reset();
+                if (compareError) handleResetCompare();
+              }}
+            />
           </div>
         )}
 
-        {!loading && report ? (
+        {/* View 1: Single Report View */}
+        {!loading && !compareLoading && report ? (
           <ReportPage report={report} onReset={reset} darkMode={darkMode} />
-        ) : !loading && !error ? (
-          /* Landing / Hero State */
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 text-center">
+        ) : null}
+
+        {/* View 2: Comparison Report View */}
+        {!loading && !compareLoading && !report && compareData ? (
+          <ComparePage
+            compareData={compareData}
+            onReset={handleResetCompare}
+            onSelectReport={handleSelectReportFromCompare}
+          />
+        ) : null}
+
+        {/* View 3: Landing / Search State */}
+        {!loading && !compareLoading && !report && !compareData ? (
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 text-center">
             {/* Pill */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/70 dark:bg-indigo-950/50 text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-8 backdrop-blur-sm shadow-xs animate-bounce">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/70 dark:bg-indigo-950/50 text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-6 backdrop-blur-sm shadow-xs animate-bounce">
               <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
               <span>Full-Stack Repository Intelligence</span>
             </div>
 
             {/* Headline */}
             <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-slate-950 dark:text-white max-w-4xl mx-auto leading-[1.15]">
-              Instant architecture diagrams & health scores for{' '}
+              Instant architecture diagrams, health audits &{' '}
               <span className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-500 bg-clip-text text-transparent">
-                any GitHub repository
+                head-to-head comparisons
               </span>
             </h1>
 
-            <p className="mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
-              Drop any public repository link to generate a plain-English explanation, interactive Mermaid system diagram, step-by-step onboarding guide, and a 0–100 health audit.
+            <p className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+              Drop any public repository link or compare two repositories side-by-side to analyze architecture, supply chain security, test coverage, and onboarding guides.
             </p>
 
-            {/* Input Bar */}
-            <div className="mt-10 mb-8">
-              <RepoInput onAnalyze={analyze} loading={loading} />
+            {/* Mode Switcher Toggle */}
+            <div className="flex items-center justify-center mt-8 mb-6">
+              <div className="inline-flex p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900 border border-slate-300/80 dark:border-slate-800 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setMode('single')}
+                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    mode === 'single'
+                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  Single Repository
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('compare')}
+                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    mode === 'compare'
+                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <Scale className="w-3.5 h-3.5" />
+                  <span>Compare Repos</span>
+                </button>
+              </div>
             </div>
 
-            {/* Recently Analyzed Shelf */}
-            {recentReports && recentReports.length > 0 && (
+            {/* Input Bar according to active mode */}
+            <div className="mb-12">
+              {mode === 'single' ? (
+                <RepoInput onAnalyze={analyze} loading={loading} />
+              ) : (
+                <CompareInput onCompare={handleCompare} loading={compareLoading} />
+              )}
+            </div>
+
+            {/* Recently Analyzed Shelf (Single mode only) */}
+            {mode === 'single' && recentReports && recentReports.length > 0 && (
               <div className="mb-14 text-left max-w-3xl mx-auto">
                 <div className="flex items-center gap-2 mb-3 px-1 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <History className="w-3.5 h-3.5 text-indigo-500" />
@@ -174,22 +276,22 @@ export function App() {
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1.5">
-                  7-Point Health Score
+                  8-Point Health Score
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Weighted evaluation of tests, README quality, issue response, license, and CI/CD.
+                  Weighted evaluation of tests, security posture, README quality, issue response, license, and CI/CD.
                 </p>
               </div>
 
               <div className="p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-sm shadow-xs hover:border-violet-300 dark:hover:border-violet-700 transition-colors">
                 <div className="w-10 h-10 rounded-2xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-4">
-                  <Sparkles className="w-5 h-5" />
+                  <Scale className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1.5">
-                  Plain-English Summary
+                  RepoLens Compare
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Understand unfamiliar codebases in seconds without digging through hundreds of files.
+                  Compare two libraries or tools head-to-head with delta matrices and tradeoff summaries.
                 </p>
               </div>
 
@@ -215,13 +317,13 @@ export function App() {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-800 dark:text-slate-200">RepoLens</span>
             <span>—</span>
-            <span>Open-source GitHub repository analyzer</span>
+            <span>Open-source GitHub repository analyzer & comparison engine</span>
           </div>
           <div className="flex items-center gap-4">
             <span>FastAPI + React + Tailwind + Mermaid</span>
             <span className="text-slate-300 dark:text-slate-700">|</span>
             <a
-              href="https://github.com"
+              href="https://github.com/yashwantraj147-eng/repolens"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-1 transition-colors"
@@ -236,4 +338,3 @@ export function App() {
   );
 }
 export default App;
-

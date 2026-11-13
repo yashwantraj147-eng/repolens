@@ -84,6 +84,9 @@ Refer to official docs.
             {"path": "tests/test_api.py", "type": "blob"},
             {"path": "tests/test_extra.py", "type": "blob"},
             {"path": ".github/workflows/ci.yml", "type": "blob"},
+            {"path": "SECURITY.md", "type": "blob"},
+            {"path": ".github/dependabot.yml", "type": "blob"},
+            {"path": "poetry.lock", "type": "blob"},
         ]
 
         recent_commits = [
@@ -118,7 +121,7 @@ Refer to official docs.
 
         assert score.overall >= 90
         assert score.grade in ("A", "A+")
-        assert len(score.breakdown) == 7
+        assert len(score.breakdown) == 8
 
     def test_calculate_score_empty_repo(self, base_repo_info: RepoInfo) -> None:
         """An empty repository with no docs/tests/license should receive an F."""
@@ -432,4 +435,62 @@ class TestCiSetupScoring:
         ])
         # 50 + 25 + 25 = 100
         assert result.score == 100
+
+
+class TestSecurityPostureScoring:
+    """Tests for Security Posture and supply chain hygiene scoring."""
+
+    def test_no_security_setup(self) -> None:
+        engine = ScoringEngine()
+        result = engine.score_security_posture(["src/index.js"])
+        assert result.score == 0
+        assert "Missing SECURITY.md" in result.details
+        assert "No lockfile detected" in result.details
+
+    def test_lockfile_only(self) -> None:
+        engine = ScoringEngine()
+        result = engine.score_security_posture(["package-lock.json"])
+        assert result.score == 20
+        assert "Lockfile present" in result.details
+
+    def test_security_md_with_disclosure(self) -> None:
+        engine = ScoringEngine()
+        result = engine.score_security_posture(
+            ["SECURITY.md"],
+            readme_content="Report vulnerabilities to security@example.com",
+        )
+        # 35 (security.md) + 10 (disclosure) = 45
+        assert result.score == 45
+        assert "SECURITY.md policy defined" in result.details
+        assert "Vulnerability disclosure channel defined" in result.details
+
+    def test_comprehensive_security_posture(self) -> None:
+        engine = ScoringEngine()
+        files = [
+            ".github/SECURITY.md",
+            ".github/dependabot.yml",
+            ".github/workflows/codeql.yml",
+            "Cargo.lock",
+        ]
+        result = engine.score_security_posture(
+            files,
+            readme_content="Security policy: report via HackerOne",
+        )
+        # 35 (security.md) + 35 (dependabot + codeql) + 20 (cargo.lock) + 10 (disclosure) = 100
+        assert result.score == 100
+        assert "Dependabot" in result.details
+        assert "CodeQL" in result.details
+
+    def test_renovate_and_scanner(self) -> None:
+        engine = ScoringEngine()
+        files = [
+            "renovate.json",
+            ".github/workflows/snyk-test.yml",
+            "pnpm-lock.yaml",
+        ]
+        result = engine.score_security_posture(files)
+        # 35 (renovate + snyk) + 20 (lockfile) = 55
+        assert result.score == 55
+        assert "Renovate" in result.details
+        assert "SAST/Secret Scanner" in result.details
 
