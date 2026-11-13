@@ -37,6 +37,12 @@ htmlcov/
 coverage.xml
 *.cover
 
+# SQLite & Databases
+*.db
+*.sqlite
+*.sqlite3
+repolens.db
+
 # Node.js
 node_modules/
 npm-debug.log*

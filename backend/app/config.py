@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     backend_port: int = Field(default=8000, description="Backend server port")
     cors_origins: str = Field(default="http://localhost:3000,http://localhost:5173", description="Allowed CORS origins comma-separated")
 
-    # Cache (in-memory by default; configure Redis in production clusters)
+    # Cache & Storage
     cache_ttl_seconds: int = Field(default=3600, description="Report cache TTL in seconds")
+    db_path: str = Field(default="repolens.db", description="Path to SQLite database for persistent report storage")
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

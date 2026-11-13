@@ -41,7 +41,7 @@ class TestAnalyzeEndpoint:
 
 
 class TestReportsEndpoint:
-    """Tests for the /api/reports/{report_id} endpoint."""
+    """Tests for the /api/reports/{report_id} and /api/reports/recent endpoints."""
 
     def test_nonexistent_report_returns_404(self, client: TestClient) -> None:
         """Requesting a non-existent report should return 404."""
@@ -53,3 +53,26 @@ class TestReportsEndpoint:
         response = client.get("/api/reports/fake-id")
         data = response.json()
         assert "not found" in data["detail"].lower()
+
+    def test_get_recent_reports_empty_or_populated(self, client: TestClient) -> None:
+        """Recent reports endpoint should return a list."""
+        response = client.get("/api/reports/recent")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_get_persisted_report_by_id(self, client: TestClient) -> None:
+        """Report stored in report store should be retrievable via GET /api/reports/{id}."""
+        from tests.test_report_store import create_sample_report
+        from app.services.report_store import get_report_store
+
+        store = get_report_store()
+        sample = create_sample_report(owner="persisted-owner", name="persisted-repo", score=88)
+        store.save(sample)
+
+        response = client.get(f"/api/reports/{sample.report_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["report_id"] == sample.report_id
+        assert data["repo"]["owner"] == "persisted-owner"
+        assert data["health_score"]["overall"] == 88

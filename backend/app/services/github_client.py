@@ -40,16 +40,48 @@ class GitHubClient:
     with exponential backoff.
     """
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        http_client: Optional[httpx.AsyncClient] = None,
+    ) -> None:
         """Initialize the GitHub client.
 
         Args:
             settings: Application settings containing GitHub token and API base URL.
+            http_client: Optional shared httpx.AsyncClient instance.
         """
         self.base_url = settings.github_api_base.rstrip("/")
         self.token = settings.github_token
         self.rate_limiter = RateLimitHandler()
         self._headers = self._build_headers()
+        self._http_client = http_client
+        self._owns_client = http_client is None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or initialize the reusable HTTP client session.
+
+        Returns:
+            Active httpx.AsyncClient instance with connection pooling.
+        """
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(timeout=30.0, follow_redirects=True)
+            self._owns_client = True
+        return self._http_client
+
+    async def close(self) -> None:
+        """Close the underlying HTTP client session if owned by this instance."""
+        if self._owns_client and self._http_client and not self._http_client.is_closed:
+            await self._http_client.aclose()
+
+    async def __aenter__(self) -> "GitHubClient":
+        """Async context manager entry."""
+        await self._get_client()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Async context manager exit."""
+        await self.close()
 
     def _build_headers(self) -> Dict[str, str]:
         """Build HTTP headers for GitHub API requests.
@@ -89,14 +121,14 @@ class GitHubClient:
             GitHubClientError: For other API errors.
         """
         url = f"{self.base_url}{path}"
+        client = await self._get_client()
 
         for attempt in range(self.rate_limiter.max_retries + 1):
             await self.rate_limiter.wait_if_needed()
 
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                response = await client.request(
-                    method, url, headers=self._headers, params=params
-                )
+            response = await client.request(
+                method, url, headers=self._headers, params=params
+            )
 
             self.rate_limiter.update_from_response(response)
 
@@ -172,11 +204,11 @@ class GitHubClient:
             README content as a string, or None if not found.
         """
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                response = await client.get(
-                    f"{self.base_url}/repos/{owner}/{repo}/readme",
-                    headers={**self._headers, "Accept": "application/vnd.github.raw+json"},
-                )
+            client = await self._get_client()
+            response = await client.get(
+                f"{self.base_url}/repos/{owner}/{repo}/readme",
+                headers={**self._headers, "Accept": "application/vnd.github.raw+json"},
+            )
             self.rate_limiter.update_from_response(response)
             if response.status_code == 200:
                 return response.text

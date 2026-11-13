@@ -16,16 +16,17 @@ export class ApiError extends Error {
 /**
  * Trigger analysis of a GitHub repository.
  * @param {string} repoUrl
+ * @param {boolean} forceRefresh - Bypass server cache and force fresh analysis
  * @returns {Promise<object>} AnalysisReport
  */
-export async function analyzeRepository(repoUrl) {
+export async function analyzeRepository(repoUrl, forceRefresh = false) {
   try {
     const response = await fetch(`${API_BASE}/api/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ repo_url: repoUrl }),
+      body: JSON.stringify({ repo_url: repoUrl, force_refresh: forceRefresh }),
     });
 
     const data = await response.json();
@@ -49,6 +50,21 @@ export async function analyzeRepository(repoUrl) {
         : err.message,
       0
     );
+  }
+}
+
+/**
+ * Fetch recently analyzed repositories for the landing page showcase.
+ * @param {number} limit
+ * @returns {Promise<Array>}
+ */
+export async function getRecentReports(limit = 6) {
+  try {
+    const response = await fetch(`${API_BASE}/api/reports/recent?limit=${limit}`);
+    if (!response.ok) return [];
+    return await response.json();
+  } catch {
+    return [];
   }
 }
 

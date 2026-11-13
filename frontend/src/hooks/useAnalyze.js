@@ -9,11 +9,11 @@ export function useAnalyze() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const analyze = useCallback(async (repoUrl) => {
+  const analyze = useCallback(async (repoUrl, forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await analyzeRepository(repoUrl);
+      const data = await analyzeRepository(repoUrl, forceRefresh);
       setReport(data);
       // Update browser URL query param without full reload
       if (typeof window !== 'undefined' && window.history) {

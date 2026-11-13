@@ -1,11 +1,22 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import App from '../App';
 
+// Mock getRecentReports to avoid unhandled async updates
+vi.mock('../utils/api', async () => {
+  const actual = await vi.importActual('../utils/api');
+  return {
+    ...actual,
+    getRecentReports: vi.fn().mockResolvedValue([]),
+  };
+});
+
 describe('App Component', () => {
-  it('renders landing page headline and features', () => {
-    render(<App />);
+  it('renders landing page headline and features', async () => {
+    await act(async () => {
+      render(<App />);
+    });
 
     const brandElements = screen.getAllByText('RepoLens');
     expect(brandElements.length).toBeGreaterThanOrEqual(1);

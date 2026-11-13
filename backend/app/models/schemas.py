@@ -19,6 +19,10 @@ class AnalyzeRequest(BaseModel):
         description="Full GitHub repository URL",
         examples=["https://github.com/fastapi/fastapi"],
     )
+    force_refresh: bool = Field(
+        default=False,
+        description="Bypass cache and force a fresh analysis from GitHub API",
+    )
 
     @field_validator("repo_url")
     @classmethod
@@ -123,3 +127,18 @@ class ErrorResponse(BaseModel):
 
     detail: str = Field(..., description="Error message")
     error_code: Optional[str] = Field(None, description="Machine-readable error code")
+
+
+class RecentReportItem(BaseModel):
+    """Summary item for recently analyzed repository listing."""
+
+    report_id: str = Field(..., description="Unique report identifier")
+    owner: str = Field(..., description="Repository owner")
+    name: str = Field(..., description="Repository name")
+    url: str = Field(..., description="Repository URL")
+    stars: int = Field(0, description="Star count")
+    language: Optional[str] = Field(None, description="Primary programming language")
+    overall_score: int = Field(..., ge=0, le=100, description="Overall health score")
+    grade: str = Field(..., description="Letter grade")
+    generated_at: datetime = Field(..., description="When the report was generated")
+

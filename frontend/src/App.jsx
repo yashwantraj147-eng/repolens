@@ -5,6 +5,7 @@ import { ReportPage } from './components/ReportPage';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorAlert } from './components/ErrorAlert';
 import { useAnalyze } from './hooks/useAnalyze';
+import { getRecentReports } from './utils/api';
 import {
   GitFork,
   Sparkles,
@@ -13,6 +14,8 @@ import {
   BookOpen,
   ArrowUpRight,
   Terminal,
+  History,
+  Star,
 } from 'lucide-react';
 
 export function App() {
@@ -26,6 +29,16 @@ export function App() {
   });
 
   const { report, loading, error, analyze, loadReport, reset } = useAnalyze();
+  const [recentReports, setRecentReports] = useState([]);
+
+  // Fetch recent reports on mount and when returning to landing
+  useEffect(() => {
+    if (!report && !loading) {
+      getRecentReports(4)
+        .then((items) => setRecentReports(items || []))
+        .catch(() => setRecentReports([]));
+    }
+  }, [report, loading]);
 
   // Sync dark class on document root
   useEffect(() => {
@@ -89,9 +102,49 @@ export function App() {
             </p>
 
             {/* Input Bar */}
-            <div className="mt-10 mb-16">
+            <div className="mt-10 mb-8">
               <RepoInput onAnalyze={analyze} loading={loading} />
             </div>
+
+            {/* Recently Analyzed Shelf */}
+            {recentReports && recentReports.length > 0 && (
+              <div className="mb-14 text-left max-w-3xl mx-auto">
+                <div className="flex items-center gap-2 mb-3 px-1 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <History className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Recently Analyzed Repositories</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {recentReports.map((item) => (
+                    <button
+                      key={item.report_id}
+                      type="button"
+                      onClick={() => loadReport(item.report_id)}
+                      className="p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white/80 dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-indigo-400 dark:hover:border-indigo-600 transition-all text-left flex items-center justify-between group shadow-2xs cursor-pointer"
+                    >
+                      <div className="min-w-0 pr-3">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          {item.owner} / {item.name}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                          {item.language && <span>{item.language}</span>}
+                          {item.language && <span>•</span>}
+                          <span className="inline-flex items-center gap-1">
+                            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                            {item.stars.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="px-2 py-0.5 rounded-lg text-xs font-black bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                          {item.overall_score} ({item.grade})
+                        </span>
+                        <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Feature Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 text-left pt-6">

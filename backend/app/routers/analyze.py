@@ -1,11 +1,12 @@
 """Analysis endpoint for processing GitHub repositories."""
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Dict, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 
 from app.config import get_settings
 from app.models.schemas import AnalyzeRequest, AnalysisReport, ErrorResponse
@@ -15,13 +16,14 @@ from app.services.github_client import (
     RateLimitExceededError,
     RepoNotFoundError,
 )
+from app.services.report_store import get_report_store
 from app.utils.validators import parse_github_url
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["analysis"])
 
-# In-memory report cache (TTL managed at application level)
+# In-memory report cache for backward compatibility
 _report_cache: Dict[str, AnalysisReport] = {}
 
 
@@ -44,9 +46,12 @@ def get_report_cache() -> Dict[str, AnalysisReport]:
         500: {"model": ErrorResponse, "description": "Internal error"},
     },
     summary="Analyze a GitHub repository",
-    description="Accepts a GitHub repository URL and returns a comprehensive analysis report.",
+    description="Accepts a GitHub repository URL and returns a comprehensive analysis report with caching.",
 )
-async def analyze_repo(request: AnalyzeRequest) -> AnalysisReport:
+async def analyze_repo(
+    request: AnalyzeRequest,
+    response: Response,
+) -> AnalysisReport:
     """Analyze a public GitHub repository.
 
     Fetches repository data from the GitHub API and produces:
@@ -56,7 +61,8 @@ async def analyze_repo(request: AnalyzeRequest) -> AnalysisReport:
     - A health score (0-100)
 
     Args:
-        request: Request body containing the GitHub repo URL.
+        request: Request body containing the GitHub repo URL and force_refresh flag.
+        response: FastAPI response object for setting custom cache headers.
 
     Returns:
         Complete AnalysisReport with all generated content.
@@ -65,98 +71,123 @@ async def analyze_repo(request: AnalyzeRequest) -> AnalysisReport:
         HTTPException: On validation errors, not-found, or rate limits.
     """
     settings = get_settings()
+    store = get_report_store(settings.db_path)
 
     try:
         owner, repo = parse_github_url(request.repo_url)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    client = GitHubClient(settings)
-
-    try:
-        # Fetch repository info
-        repo_info = await client.get_repo_info(owner, repo)
-
-        # Fetch additional data for analysis
-        readme_content = await client.get_readme(owner, repo)
-        file_tree = await client.get_file_tree(owner, repo)
-        recent_commits = await client.get_recent_commits(owner, repo)
-        closed_issues = await client.get_closed_issues(owner, repo)
-        languages = await client.get_languages(owner, repo)
-
-        # Import services (lazy to avoid circular imports during startup)
-        from app.services.scoring_engine import ScoringEngine
-        from app.services.diagram_generator import DiagramGenerator
-        from app.services.summary_generator import SummaryGenerator
-        from app.services.onboarding_guide import OnboardingGuideGenerator
-
-        # Generate health score
-        scoring_engine = ScoringEngine()
-        health_score = scoring_engine.calculate_score(
-            repo_info=repo_info,
-            readme_content=readme_content,
-            file_tree=file_tree,
-            recent_commits=recent_commits,
-            closed_issues=closed_issues,
+    # Fast path: Serve fresh cached report if available and not forcing refresh
+    if not request.force_refresh:
+        cached_report = store.get_latest_for_repo(
+            owner, repo, max_age_seconds=settings.cache_ttl_seconds
         )
+        if cached_report:
+            logger.info("Serving cached report %s for %s/%s (TTL %ds)", cached_report.report_id, owner, repo, settings.cache_ttl_seconds)
+            _report_cache[cached_report.report_id] = cached_report
+            if response:
+                response.headers["X-Cache"] = "HIT"
+            return cached_report
 
-        # Generate architecture diagram
-        diagram_gen = DiagramGenerator()
-        architecture_diagram = diagram_gen.generate(
-            repo_info=repo_info,
-            file_tree=file_tree,
-            languages=languages,
-        )
+    if response:
+        response.headers["X-Cache"] = "MISS"
 
-        # Generate summary
-        summary_gen = SummaryGenerator(settings)
-        summary = await summary_gen.generate(
-            repo_info=repo_info,
-            readme_content=readme_content,
-            languages=languages,
-            file_tree=file_tree,
-        )
+    async with GitHubClient(settings) as client:
+        try:
+            # Step 1: Validate repository existence and fetch metadata
+            repo_info = await client.get_repo_info(owner, repo)
 
-        # Generate onboarding guide
-        onboarding_gen = OnboardingGuideGenerator(settings)
-        onboarding_guide = await onboarding_gen.generate(
-            repo_info=repo_info,
-            readme_content=readme_content,
-            file_tree=file_tree,
-            languages=languages,
-        )
+            # Step 2: Fetch remaining analysis data concurrently in parallel
+            (
+                readme_content,
+                file_tree,
+                recent_commits,
+                closed_issues,
+                languages,
+            ) = await asyncio.gather(
+                client.get_readme(owner, repo),
+                client.get_file_tree(owner, repo),
+                client.get_recent_commits(owner, repo),
+                client.get_closed_issues(owner, repo),
+                client.get_languages(owner, repo),
+            )
 
-        # Build report
-        report = AnalysisReport(
-            report_id=str(uuid.uuid4()),
-            repo=repo_info,
-            summary=summary,
-            architecture_diagram=architecture_diagram,
-            onboarding_guide=onboarding_guide,
-            health_score=health_score,
-            generated_at=datetime.now(timezone.utc),
-        )
+            # Import services lazily to avoid circular imports during startup
+            from app.services.scoring_engine import ScoringEngine
+            from app.services.diagram_generator import DiagramGenerator
+            from app.services.summary_generator import SummaryGenerator
+            from app.services.onboarding_guide import OnboardingGuideGenerator
 
-        # Cache the report
-        _report_cache[report.report_id] = report
+            # Step 3: Compute health score and architecture diagram
+            scoring_engine = ScoringEngine()
+            health_score = scoring_engine.calculate_score(
+                repo_info=repo_info,
+                readme_content=readme_content,
+                file_tree=file_tree,
+                recent_commits=recent_commits,
+                closed_issues=closed_issues,
+            )
 
-        logger.info(
-            "Analysis complete for %s/%s — Score: %d (%s)",
-            owner,
-            repo,
-            health_score.overall,
-            health_score.grade,
-        )
+            diagram_gen = DiagramGenerator()
+            architecture_diagram = diagram_gen.generate(
+                repo_info=repo_info,
+                file_tree=file_tree,
+                languages=languages,
+            )
 
-        return report
+            # Step 4: Concurrently generate summary and onboarding guide
+            summary_gen = SummaryGenerator(settings)
+            onboarding_gen = OnboardingGuideGenerator(settings)
 
-    except RepoNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except RateLimitExceededError as e:
-        raise HTTPException(status_code=429, detail=str(e))
-    except GitHubClientError as e:
-        logger.error("GitHub API error analyzing %s/%s: %s", owner, repo, str(e))
-        raise HTTPException(status_code=502, detail=f"GitHub API error: {str(e)}")
-    except Exception as e:
-        logger.error("Unexpected error analyzing %s/%s: %s", owner, repo, str(e))
-        raise HTTPException(status_code=500, detail="An unexpected error occurred during analysis.")
+            summary, onboarding_guide = await asyncio.gather(
+                summary_gen.generate(
+                    repo_info=repo_info,
+                    readme_content=readme_content,
+                    languages=languages,
+                    file_tree=file_tree,
+                ),
+                onboarding_gen.generate(
+                    repo_info=repo_info,
+                    readme_content=readme_content,
+                    file_tree=file_tree,
+                    languages=languages,
+                ),
+            )
+
+            # Step 5: Build final report
+            report = AnalysisReport(
+                report_id=str(uuid.uuid4()),
+                repo=repo_info,
+                summary=summary,
+                architecture_diagram=architecture_diagram,
+                onboarding_guide=onboarding_guide,
+                health_score=health_score,
+                generated_at=datetime.now(timezone.utc),
+            )
+
+            # Step 6: Persist report in SQLite store and in-memory cache
+            store.save(report)
+            _report_cache[report.report_id] = report
+
+            logger.info(
+                "Analysis complete for %s/%s — Score: %d (%s) — Saved to store (%s)",
+                owner,
+                repo,
+                health_score.overall,
+                health_score.grade,
+                report.report_id,
+            )
+
+            return report
+
+        except RepoNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except RateLimitExceededError as e:
+            raise HTTPException(status_code=429, detail=str(e))
+        except GitHubClientError as e:
+            logger.error("GitHub API error analyzing %s/%s: %s", owner, repo, str(e))
+            raise HTTPException(status_code=502, detail=f"GitHub API error: {str(e)}")
+        except Exception as e:
+            logger.error("Unexpected error analyzing %s/%s: %s", owner, repo, str(e))
+            raise HTTPException(status_code=500, detail="An unexpected error occurred during analysis.")
