@@ -1,15 +1,13 @@
 """Tests for the GitHub API client."""
 
+import httpx
 import pytest
 import respx
-import httpx
 
 from app.config import Settings
 from app.services.github_client import (
     GitHubClient,
     RepoNotFoundError,
-    RateLimitExceededError,
-    GitHubClientError,
 )
 
 

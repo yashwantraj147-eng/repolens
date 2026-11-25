@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ArrowRight, Sparkles, X, Github } from 'lucide-react';
+import { Search, ArrowRight, Sparkles, X, GitBranch } from 'lucide-react';
 
 const SAMPLE_REPOS = [
   { label: 'FastAPI', url: 'https://github.com/fastapi/fastapi', desc: 'Python API framework' },
@@ -45,7 +45,7 @@ export function RepoInput({ onAnalyze, loading }) {
       <form onSubmit={handleSubmit} className="relative group">
         <div className="relative flex items-center rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg shadow-indigo-500/5 group-focus-within:border-indigo-500 dark:group-focus-within:border-indigo-500 transition-all duration-200">
           <div className="pl-4 pr-2 text-slate-400 dark:text-slate-500 flex items-center">
-            <Github className="w-5 h-5" />
+            <GitBranch className="w-5 h-5" />
           </div>
           <input
             type="text"

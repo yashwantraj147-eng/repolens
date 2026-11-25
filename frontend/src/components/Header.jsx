@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Github, ShieldCheck, Sparkles, BookOpen } from 'lucide-react';
+import { Search, GitBranch, ShieldCheck, Sparkles, BookOpen } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 export function Header({ darkMode, setDarkMode, onReset }) {
@@ -38,7 +38,7 @@ export function Header({ darkMode, setDarkMode, onReset }) {
             rel="noopener noreferrer"
             className="hidden md:flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
           >
-            <Github className="w-3.5 h-3.5" />
+            <GitBranch className="w-3.5 h-3.5" />
             <span>GitHub API Powered</span>
           </a>
 

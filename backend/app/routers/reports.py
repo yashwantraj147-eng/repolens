@@ -1,6 +1,5 @@
 """Report retrieval and recent reports endpoints."""
 
-from typing import List
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -12,13 +11,13 @@ router = APIRouter(tags=["reports"])
 
 @router.get(
     "/api/reports/recent",
-    response_model=List[RecentReportItem],
+    response_model=list[RecentReportItem],
     summary="List recently analyzed repositories",
     description="Retrieve a list of the most recently analyzed repositories for display on the landing page.",
 )
 async def get_recent_reports(
     limit: int = Query(default=10, ge=1, le=50, description="Maximum number of items to return"),
-) -> List[RecentReportItem]:
+) -> list[RecentReportItem]:
     """Retrieve recently analyzed repository summaries.
 
     Args:

@@ -1,7 +1,6 @@
 """LLM Provider factory with automatic fallback resolution."""
 
 import logging
-from typing import Optional
 
 from app.config import Settings
 from app.services.llm.base import LLMProvider

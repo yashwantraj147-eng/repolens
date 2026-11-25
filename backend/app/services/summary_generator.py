@@ -4,11 +4,16 @@ Produces a plain-English summary of what a repository does,
 using either an LLM or template-based heuristics.
 """
 
-from typing import Any, Dict, List, Optional
+import logging
+from typing import Any
+
+import httpx
 
 from app.config import Settings
 from app.models.schemas import RepoInfo
 from app.services.llm import LLMProvider, LocalProvider, create_llm_provider
+
+logger = logging.getLogger(__name__)
 
 
 class SummaryGenerator:
@@ -30,9 +35,9 @@ class SummaryGenerator:
     async def generate(
         self,
         repo_info: RepoInfo,
-        readme_content: Optional[str] = None,
-        languages: Optional[Dict[str, int]] = None,
-        file_tree: Optional[List[Dict[str, Any]]] = None,
+        readme_content: str | None = None,
+        languages: dict[str, int] | None = None,
+        file_tree: list[dict[str, Any]] | None = None,
     ) -> str:
         """Generate a plain-English summary of the repository.
 
@@ -51,8 +56,8 @@ class SummaryGenerator:
                 return await self._generate_with_llm(
                     repo_info, readme_content, languages, file_tree
                 )
-            except Exception:
-                pass  # Fall back to template
+            except (RuntimeError, httpx.HTTPError, ValueError) as exc:
+                logger.debug("LLM summary generation failed, falling back to template: %s", exc)
 
         # Template-based generation
         return self._generate_from_template(
@@ -62,9 +67,9 @@ class SummaryGenerator:
     async def _generate_with_llm(
         self,
         repo_info: RepoInfo,
-        readme_content: Optional[str],
-        languages: Optional[Dict[str, int]],
-        file_tree: Optional[List[Dict[str, Any]]],
+        readme_content: str | None,
+        languages: dict[str, int] | None,
+        file_tree: list[dict[str, Any]] | None,
     ) -> str:
         """Generate summary using an LLM provider.
 
@@ -112,9 +117,9 @@ class SummaryGenerator:
     def _generate_from_template(
         self,
         repo_info: RepoInfo,
-        readme_content: Optional[str],
-        languages: Optional[Dict[str, int]],
-        file_tree: Optional[List[Dict[str, Any]]],
+        readme_content: str | None,
+        languages: dict[str, int] | None,
+        file_tree: list[dict[str, Any]] | None,
     ) -> str:
         """Generate summary using template-based heuristics.
 

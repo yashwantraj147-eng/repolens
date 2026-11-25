@@ -1,27 +1,27 @@
 """Application configuration using pydantic-settings."""
 
-from pydantic_settings import BaseSettings
+
 from pydantic import Field
-from typing import Optional
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # GitHub API
-    github_token: Optional[str] = Field(default=None, description="GitHub PAT for higher rate limits")
+    github_token: str | None = Field(default=None, description="GitHub PAT for higher rate limits")
     github_api_base: str = Field(default="https://api.github.com", description="GitHub API base URL")
 
     # LLM Configuration
     llm_provider: str = Field(default="auto", description="LLM provider: auto, openai, gemini, groq, ollama, local")
-    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key for AI summaries")
-    openai_base_url: Optional[str] = Field(default=None, description="Custom OpenAI-compatible endpoint")
+    openai_api_key: str | None = Field(default=None, description="OpenAI API key for AI summaries")
+    openai_base_url: str | None = Field(default=None, description="Custom OpenAI-compatible endpoint")
     llm_model: str = Field(default="gpt-3.5-turbo", description="OpenAI model name")
-    gemini_api_key: Optional[str] = Field(default=None, description="Google Gemini API key")
+    gemini_api_key: str | None = Field(default=None, description="Google Gemini API key")
     gemini_model: str = Field(default="gemini-1.5-flash", description="Gemini model name")
-    groq_api_key: Optional[str] = Field(default=None, description="Groq API key")
+    groq_api_key: str | None = Field(default=None, description="Groq API key")
     groq_model: str = Field(default="llama-3.3-70b-versatile", description="Groq model name")
-    ollama_base_url: Optional[str] = Field(default="http://localhost:11434", description="Local Ollama base URL")
+    ollama_base_url: str | None = Field(default="http://localhost:11434", description="Local Ollama base URL")
     ollama_model: str = Field(default="llama3", description="Ollama model name")
 
     # Server

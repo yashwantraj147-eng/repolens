@@ -1,8 +1,6 @@
 """Input validation helpers for GitHub URLs and repository identifiers."""
 
 import re
-from typing import Tuple
-
 
 # Matches github.com/owner/repo with optional trailing segments
 GITHUB_URL_PATTERN = re.compile(
@@ -10,7 +8,7 @@ GITHUB_URL_PATTERN = re.compile(
 )
 
 
-def parse_github_url(url: str) -> Tuple[str, str]:
+def parse_github_url(url: str) -> tuple[str, str]:
     """Parse a GitHub URL and extract owner and repository name.
 
     Args:

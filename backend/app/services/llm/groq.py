@@ -1,7 +1,6 @@
 """Groq LLM provider for ultra-low latency inference."""
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -61,7 +60,7 @@ class GroqProvider(LLMProvider):
                 raise RuntimeError(f"Groq API request failed: {e.response.status_code}") from e
             except Exception as e:
                 logger.error("Groq provider error: %s", str(e))
-                raise RuntimeError(f"Groq generation failed: {str(e)}") from e
+                raise RuntimeError(f"Groq generation failed: {e!s}") from e
 
     async def is_available(self) -> bool:
         """Check if Groq API key is present."""

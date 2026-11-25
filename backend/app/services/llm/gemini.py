@@ -1,7 +1,6 @@
 """Google Gemini LLM provider using the Google AI REST API."""
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -75,7 +74,7 @@ class GeminiProvider(LLMProvider):
                 raise RuntimeError(f"Gemini API request failed: {e.response.status_code}") from e
             except Exception as e:
                 logger.error("Gemini provider error: %s", str(e))
-                raise RuntimeError(f"Gemini generation failed: {str(e)}") from e
+                raise RuntimeError(f"Gemini generation failed: {e!s}") from e
 
     async def is_available(self) -> bool:
         """Check if Gemini API key is configured.

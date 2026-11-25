@@ -1,6 +1,5 @@
 """Tests for the dynamic SVG badge generator and router."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.services.badge_generator import generate_badge_svg, get_grade_color

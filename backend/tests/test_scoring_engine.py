@@ -3,12 +3,12 @@
 Targeting >= 80% test coverage across all scoring functions and edge cases.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
-from app.models.enums import ScoreCategoryName
 from app.models.schemas import RepoInfo
-from app.services.scoring_engine import ScoringEngine, CATEGORY_WEIGHTS
+from app.services.scoring_engine import CATEGORY_WEIGHTS, ScoringEngine
 
 
 @pytest.fixture
@@ -23,8 +23,8 @@ def base_repo_info() -> RepoInfo:
         stars=100,
         forks=20,
         open_issues=5,
-        created_at=datetime.now(timezone.utc) - timedelta(days=365),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC) - timedelta(days=365),
+        updated_at=datetime.now(UTC),
         default_branch="main",
         topics=["testing", "python"],
         has_wiki=True,
@@ -44,7 +44,7 @@ class TestScoringEngineCalculation:
     def test_calculate_score_perfect_repo(self, base_repo_info: RepoInfo) -> None:
         """A well-equipped repository should score high (A grade)."""
         engine = ScoringEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         readme = """# Test Project
 [![CI](https://img.shields.io/badge/ci-pass-green)]()
@@ -224,7 +224,7 @@ class TestCommitActivityScoring:
 
     def test_very_active_with_recency_bonus(self) -> None:
         engine = ScoringEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent_date = (now - timedelta(days=2)).isoformat()
         commits = [{"commit": {"committer": {"date": recent_date}}}] + [
             {"commit": {"committer": {"date": "2020-01-01T00:00:00Z"}}}
@@ -258,7 +258,7 @@ class TestIssueResponseTimeScoring:
 
     def test_fast_response_less_than_one_day(self) -> None:
         engine = ScoringEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         issues = [
             {
                 "created_at": (now - timedelta(hours=12)).isoformat(),
@@ -271,7 +271,7 @@ class TestIssueResponseTimeScoring:
 
     def test_medium_response_under_three_days(self) -> None:
         engine = ScoringEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         issues = [
             {
                 "created_at": (now - timedelta(days=2)).isoformat(),
@@ -283,7 +283,7 @@ class TestIssueResponseTimeScoring:
 
     def test_acceptable_response_under_seven_days(self) -> None:
         engine = ScoringEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         issues = [
             {
                 "created_at": (now - timedelta(days=5)).isoformat(),
@@ -295,7 +295,7 @@ class TestIssueResponseTimeScoring:
 
     def test_slow_response_under_thirty_days(self) -> None:
         engine = ScoringEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         issues = [
             {
                 "created_at": (now - timedelta(days=20)).isoformat(),
@@ -307,7 +307,7 @@ class TestIssueResponseTimeScoring:
 
     def test_very_slow_response_over_thirty_days(self) -> None:
         engine = ScoringEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         issues = [
             {
                 "created_at": (now - timedelta(days=45)).isoformat(),
@@ -319,7 +319,7 @@ class TestIssueResponseTimeScoring:
 
     def test_even_count_median(self) -> None:
         engine = ScoringEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         issues = [
             {
                 "created_at": (now - timedelta(hours=2)).isoformat(),

@@ -1,6 +1,5 @@
 """Engine for comparing two repository analysis reports head-to-head."""
 
-from typing import List
 
 from app.models.enums import ScoreCategoryName
 from app.models.schemas import (
@@ -49,9 +48,9 @@ class ComparisonEngine:
             overall_winner = "tie"
 
         # Per-category comparison
-        category_comparisons: List[CategoryComparison] = []
-        repo_a_wins: List[str] = []
-        repo_b_wins: List[str] = []
+        category_comparisons: list[CategoryComparison] = []
+        repo_a_wins: list[str] = []
+        repo_b_wins: list[str] = []
 
         for cat_enum, cat_title in CATEGORY_NAMES.items():
             cat_a = report_a.health_score.breakdown.get(cat_enum)

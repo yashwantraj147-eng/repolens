@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -31,9 +30,8 @@ class AnalyzeRequest(BaseModel):
         from app.utils.validators import parse_github_url
 
         v = v.strip()
-        if not v.startswith("http://") and not v.startswith("https://") and not v.startswith("github.com/"):
-            if "/" in v and len(v.split("/")) == 2:
-                v = f"https://github.com/{v}"
+        if not v.startswith(("http://", "https://", "github.com/")) and "/" in v and len(v.split("/")) == 2:
+            v = f"https://github.com/{v}"
 
         owner, repo = parse_github_url(v)
         # Normalize to canonical form
@@ -46,17 +44,17 @@ class RepoInfo(BaseModel):
     owner: str = Field(..., description="Repository owner/organization")
     name: str = Field(..., description="Repository name")
     url: str = Field(..., description="Repository URL")
-    description: Optional[str] = Field(None, description="Repository description")
-    language: Optional[str] = Field(None, description="Primary programming language")
+    description: str | None = Field(None, description="Repository description")
+    language: str | None = Field(None, description="Primary programming language")
     stars: int = Field(0, description="Star count")
     forks: int = Field(0, description="Fork count")
     open_issues: int = Field(0, description="Open issue count")
-    created_at: Optional[datetime] = Field(None, description="Creation timestamp")
-    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
+    created_at: datetime | None = Field(None, description="Creation timestamp")
+    updated_at: datetime | None = Field(None, description="Last update timestamp")
     default_branch: str = Field("main", description="Default branch name")
     topics: list[str] = Field(default_factory=list, description="Repository topics")
     has_wiki: bool = Field(False, description="Whether wiki is enabled")
-    license_name: Optional[str] = Field(None, description="License SPDX identifier")
+    license_name: str | None = Field(None, description="License SPDX identifier")
     size: int = Field(0, description="Repository size in KB")
 
 
@@ -73,7 +71,7 @@ class HealthScore(BaseModel):
     """Overall repository health score with breakdown."""
 
     overall: int = Field(..., ge=0, le=100, description="Weighted overall score")
-    breakdown: Dict[ScoreCategoryName, ScoreCategory] = Field(
+    breakdown: dict[ScoreCategoryName, ScoreCategory] = Field(
         ..., description="Per-category score breakdown"
     )
     grade: str = Field(..., description="Letter grade (A+ to F)")
@@ -131,7 +129,7 @@ class ErrorResponse(BaseModel):
     """Standard error response."""
 
     detail: str = Field(..., description="Error message")
-    error_code: Optional[str] = Field(None, description="Machine-readable error code")
+    error_code: str | None = Field(None, description="Machine-readable error code")
 
 
 class RecentReportItem(BaseModel):
@@ -142,7 +140,7 @@ class RecentReportItem(BaseModel):
     name: str = Field(..., description="Repository name")
     url: str = Field(..., description="Repository URL")
     stars: int = Field(0, description="Star count")
-    language: Optional[str] = Field(None, description="Primary programming language")
+    language: str | None = Field(None, description="Primary programming language")
     overall_score: int = Field(..., ge=0, le=100, description="Overall health score")
     grade: str = Field(..., description="Letter grade")
     generated_at: datetime = Field(..., description="When the report was generated")
@@ -165,9 +163,8 @@ class CompareRequest(BaseModel):
         from app.utils.validators import parse_github_url
 
         v = v.strip()
-        if not v.startswith("http://") and not v.startswith("https://") and not v.startswith("github.com/"):
-            if "/" in v and len(v.split("/")) == 2:
-                v = f"https://github.com/{v}"
+        if not v.startswith(("http://", "https://", "github.com/")) and "/" in v and len(v.split("/")) == 2:
+            v = f"https://github.com/{v}"
 
         owner, repo = parse_github_url(v)
         return f"https://github.com/{owner}/{repo}"

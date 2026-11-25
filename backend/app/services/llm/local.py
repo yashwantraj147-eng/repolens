@@ -1,6 +1,5 @@
 """Local template-based LLM provider — no API key required."""
 
-from typing import Optional
 
 from app.services.llm.base import LLMProvider
 

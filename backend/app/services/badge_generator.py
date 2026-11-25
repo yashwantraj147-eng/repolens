@@ -4,7 +4,6 @@ Produces Shields.io-compatible vector SVG badges that maintainers can embed
 directly into their GitHub READMEs.
 """
 
-from typing import Optional
 
 
 def get_grade_color(grade: str) -> str:

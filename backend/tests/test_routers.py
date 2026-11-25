@@ -1,6 +1,5 @@
 """Tests for API router endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -63,8 +62,8 @@ class TestReportsEndpoint:
 
     def test_get_persisted_report_by_id(self, client: TestClient) -> None:
         """Report stored in report store should be retrievable via GET /api/reports/{id}."""
-        from tests.test_report_store import create_sample_report
         from app.services.report_store import get_report_store
+        from tests.test_report_store import create_sample_report
 
         store = get_report_store()
         sample = create_sample_report(owner="persisted-owner", name="persisted-repo", score=88)

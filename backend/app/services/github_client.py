@@ -1,15 +1,15 @@
 """GitHub REST API client with rate limiting and error handling."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from types import TracebackType
+from typing import Any, Self
 
 import httpx
 
 from app.config import Settings
 from app.models.schemas import RepoInfo
 from app.utils.rate_limiter import RateLimitHandler
-from app.utils.validators import parse_github_url
 
 logger = logging.getLogger(__name__)
 
@@ -17,19 +17,17 @@ logger = logging.getLogger(__name__)
 class GitHubClientError(Exception):
     """Base exception for GitHub client errors."""
 
-    def __init__(self, message: str, status_code: Optional[int] = None) -> None:
+    def __init__(self, message: str, status_code: int | None = None) -> None:
         super().__init__(message)
         self.status_code = status_code
 
 
 class RepoNotFoundError(GitHubClientError):
     """Raised when a repository is not found or is private."""
-    pass
 
 
 class RateLimitExceededError(GitHubClientError):
     """Raised when GitHub API rate limit is exceeded."""
-    pass
 
 
 class GitHubClient:
@@ -43,7 +41,7 @@ class GitHubClient:
     def __init__(
         self,
         settings: Settings,
-        http_client: Optional[httpx.AsyncClient] = None,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         """Initialize the GitHub client.
 
@@ -74,16 +72,21 @@ class GitHubClient:
         if self._owns_client and self._http_client and not self._http_client.is_closed:
             await self._http_client.aclose()
 
-    async def __aenter__(self) -> "GitHubClient":
+    async def __aenter__(self) -> Self:
         """Async context manager entry."""
         await self._get_client()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         await self.close()
 
-    def _build_headers(self) -> Dict[str, str]:
+    def _build_headers(self) -> dict[str, str]:
         """Build HTTP headers for GitHub API requests.
 
         Returns:
@@ -101,7 +104,7 @@ class GitHubClient:
         self,
         method: str,
         path: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> Any:
         """Make an authenticated request to the GitHub API.
 
@@ -193,7 +196,7 @@ class GitHubClient:
             size=data.get("size", 0),
         )
 
-    async def get_readme(self, owner: str, repo: str) -> Optional[str]:
+    async def get_readme(self, owner: str, repo: str) -> str | None:
         """Fetch the repository README content.
 
         Args:
@@ -213,12 +216,12 @@ class GitHubClient:
             if response.status_code == 200:
                 return response.text
             return None
-        except Exception:
+        except (httpx.HTTPError, ValueError):
             return None
 
     async def get_file_tree(
         self, owner: str, repo: str, max_depth: int = 3
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch the repository file tree (recursive, limited depth).
 
         Args:
@@ -254,7 +257,7 @@ class GitHubClient:
 
     async def get_recent_commits(
         self, owner: str, repo: str, days: int = 90, per_page: int = 100
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch recent commits within a time window.
 
         Args:
@@ -266,7 +269,7 @@ class GitHubClient:
         Returns:
             List of commit data dicts.
         """
-        since = datetime.now(timezone.utc).replace(
+        since = datetime.now(UTC).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         from datetime import timedelta
@@ -287,7 +290,7 @@ class GitHubClient:
 
     async def get_closed_issues(
         self, owner: str, repo: str, per_page: int = 20
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch recently closed issues for response time analysis.
 
         Args:
@@ -319,7 +322,7 @@ class GitHubClient:
 
     async def get_issue_comments(
         self, owner: str, repo: str, issue_number: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch comments for a specific issue.
 
         Args:
@@ -340,7 +343,7 @@ class GitHubClient:
         except GitHubClientError:
             return []
 
-    async def get_languages(self, owner: str, repo: str) -> Dict[str, int]:
+    async def get_languages(self, owner: str, repo: str) -> dict[str, int]:
         """Fetch language breakdown for the repository.
 
         Args:
@@ -358,7 +361,7 @@ class GitHubClient:
 
     async def get_contents(
         self, owner: str, repo: str, path: str = ""
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch directory contents at a specific path.
 
         Args:

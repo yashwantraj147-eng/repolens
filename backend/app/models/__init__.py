@@ -1,22 +1,22 @@
 """Data models package."""
 
+from app.models.enums import AnalysisStatus, ScoreCategoryName
 from app.models.schemas import (
+    AnalysisReport,
     AnalyzeRequest,
+    ErrorResponse,
+    HealthScore,
     RepoInfo,
     ScoreCategory,
-    HealthScore,
-    AnalysisReport,
-    ErrorResponse,
 )
-from app.models.enums import ScoreCategoryName, AnalysisStatus
 
 __all__ = [
+    "AnalysisReport",
+    "AnalysisStatus",
     "AnalyzeRequest",
+    "ErrorResponse",
+    "HealthScore",
     "RepoInfo",
     "ScoreCategory",
-    "HealthScore",
-    "AnalysisReport",
-    "ErrorResponse",
     "ScoreCategoryName",
-    "AnalysisStatus",
 ]

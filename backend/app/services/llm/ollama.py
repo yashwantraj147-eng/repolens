@@ -1,7 +1,6 @@
 """Local Ollama LLM provider."""
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -54,9 +53,9 @@ class OllamaProvider(LLMProvider):
                 response.raise_for_status()
                 data = response.json()
                 return data.get("response", "")
-            except Exception as e:
+            except (httpx.HTTPError, ValueError, KeyError, TypeError) as e:
                 logger.error("Ollama provider error: %s", str(e))
-                raise RuntimeError(f"Ollama generation failed: {str(e)}") from e
+                raise RuntimeError(f"Ollama generation failed: {e!s}") from e
 
     async def is_available(self) -> bool:
         """Check if local Ollama daemon is running."""
@@ -64,5 +63,5 @@ class OllamaProvider(LLMProvider):
             async with httpx.AsyncClient(timeout=2.0) as client:
                 res = await client.get(f"{self.base_url}/api/tags")
                 return res.status_code == 200
-        except Exception:
+        except httpx.HTTPError:
             return False

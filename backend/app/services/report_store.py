@@ -4,13 +4,14 @@ Provides persistent caching across server restarts, fast retrieval by UUID,
 lookup by repository name with TTL expiration, and recent report queries.
 """
 
-import json
 import logging
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
+
+from pydantic import ValidationError
 
 from app.models.schemas import AnalysisReport, RecentReportItem
 
@@ -30,7 +31,7 @@ class ReportStore:
         if db_path != ":memory:":
             db_file = Path(db_path)
             db_file.parent.mkdir(parents=True, exist_ok=True)
-            self._mem_conn: Optional[sqlite3.Connection] = None
+            self._mem_conn: sqlite3.Connection | None = None
         else:
             # Persistent connection for in-memory DB so tables persist across operations
             self._mem_conn = sqlite3.connect(":memory:", check_same_thread=False, timeout=10.0)
@@ -133,7 +134,7 @@ class ReportStore:
             )
         logger.debug("Persisted report %s for %s", report.report_id, repo_key)
 
-    def get_by_id(self, report_id: str) -> Optional[AnalysisReport]:
+    def get_by_id(self, report_id: str) -> AnalysisReport | None:
         """Retrieve a report by its unique UUID identifier.
 
         Args:
@@ -153,7 +154,7 @@ class ReportStore:
 
         try:
             return AnalysisReport.model_validate_json(row["report_json"])
-        except Exception as e:
+        except (ValidationError, ValueError, TypeError, KeyError) as e:
             logger.error("Failed to deserialize report %s: %s", report_id, str(e))
             return None
 
@@ -161,8 +162,8 @@ class ReportStore:
         self,
         owner: str,
         repo: str,
-        max_age_seconds: Optional[int] = None,
-    ) -> Optional[AnalysisReport]:
+        max_age_seconds: int | None = None,
+    ) -> AnalysisReport | None:
         """Fetch the most recent report for a repo if it is within TTL.
 
         Args:
@@ -193,21 +194,21 @@ class ReportStore:
             try:
                 created_dt = datetime.fromisoformat(row["created_at"])
                 if created_dt.tzinfo is None:
-                    created_dt = created_dt.replace(tzinfo=timezone.utc)
-                age = (datetime.now(timezone.utc) - created_dt).total_seconds()
+                    created_dt = created_dt.replace(tzinfo=UTC)
+                age = (datetime.now(UTC) - created_dt).total_seconds()
                 if age > max_age_seconds:
                     logger.debug("Report for %s expired (age %.1fs > %ds)", repo_key, age, max_age_seconds)
                     return None
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 logger.warning("Error checking report age: %s", str(e))
 
         try:
             return AnalysisReport.model_validate_json(row["report_json"])
-        except Exception as e:
+        except (ValidationError, ValueError, TypeError, KeyError) as e:
             logger.error("Failed to deserialize report for %s: %s", repo_key, str(e))
             return None
 
-    def get_recent(self, limit: int = 10) -> List[RecentReportItem]:
+    def get_recent(self, limit: int = 10) -> list[RecentReportItem]:
         """Retrieve a list of the most recently analyzed repositories.
 
         Args:
@@ -245,7 +246,7 @@ class ReportStore:
                         generated_at=gen_at,
                     )
                 )
-            except Exception as e:
+            except (ValidationError, ValueError, TypeError, KeyError) as e:
                 logger.warning("Error mapping recent report row: %s", str(e))
         return items
 
@@ -270,10 +271,10 @@ class ReportStore:
 
 
 # Global singleton instance
-_store_instance: Optional[ReportStore] = None
+_store_instance: ReportStore | None = None
 
 
-def get_report_store(db_path: Optional[str] = None) -> ReportStore:
+def get_report_store(db_path: str | None = None) -> ReportStore:
     """Get or create the global ReportStore singleton instance.
 
     Args:

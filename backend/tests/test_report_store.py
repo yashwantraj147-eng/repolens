@@ -1,7 +1,7 @@
 """Tests for the SQLite persistent report store."""
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -44,7 +44,7 @@ def create_sample_report(owner: str = "test-owner", name: str = "test-repo", sco
         architecture_diagram="graph TD; A-->B",
         onboarding_guide="# Onboarding Guide",
         health_score=health_score,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
 
 
@@ -102,7 +102,7 @@ class TestReportStore:
         """Report older than max_age_seconds should return None."""
         report = create_sample_report()
         # Set timestamp 2 hours in the past
-        report.generated_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        report.generated_at = datetime.now(UTC) - timedelta(hours=2)
         store.save(report)
 
         # 1-hour TTL (3600s) should treat 2-hour-old report as expired
@@ -112,15 +112,15 @@ class TestReportStore:
     def test_get_recent_reports_ordering_and_limit(self, store: ReportStore) -> None:
         """Recent reports should be ordered by created_at descending and respect limit."""
         r1 = create_sample_report(owner="repo", name="one", score=70)
-        r1.generated_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+        r1.generated_at = datetime.now(UTC) - timedelta(minutes=10)
         store.save(r1)
 
         r2 = create_sample_report(owner="repo", name="two", score=80)
-        r2.generated_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+        r2.generated_at = datetime.now(UTC) - timedelta(minutes=5)
         store.save(r2)
 
         r3 = create_sample_report(owner="repo", name="three", score=90)
-        r3.generated_at = datetime.now(timezone.utc)
+        r3.generated_at = datetime.now(UTC)
         store.save(r3)
 
         recent = store.get_recent(limit=2)

@@ -61,4 +61,4 @@ async def compare_repositories(request: CompareRequest) -> CompareResponse:
         raise
     except Exception as e:
         logger.error("Error comparing repositories %s vs %s: %s", request.repo_a, request.repo_b, str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to compare repositories: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to compare repositories: {e!s}") from e

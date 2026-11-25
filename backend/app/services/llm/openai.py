@@ -1,7 +1,6 @@
 """OpenAI-compatible LLM provider."""
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -68,9 +67,9 @@ class OpenAIProvider(LLMProvider):
             except httpx.HTTPStatusError as e:
                 logger.error("OpenAI API error: %s", e.response.text)
                 raise RuntimeError(f"LLM API request failed: {e.response.status_code}") from e
-            except Exception as e:
+            except (httpx.HTTPError, ValueError, KeyError, TypeError) as e:
                 logger.error("OpenAI provider error: %s", str(e))
-                raise RuntimeError(f"LLM generation failed: {str(e)}") from e
+                raise RuntimeError(f"LLM generation failed: {e!s}") from e
 
     async def is_available(self) -> bool:
         """Check if the OpenAI API is reachable.
@@ -85,5 +84,5 @@ class OpenAIProvider(LLMProvider):
                     headers={"Authorization": f"Bearer {self.api_key}"},
                 )
                 return response.status_code == 200
-        except Exception:
+        except httpx.HTTPError:
             return False

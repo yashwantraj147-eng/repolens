@@ -1,5 +1,5 @@
 # Multi-stage build for FastAPI backend
-FROM python:3.11-slim as base
+FROM python:3.12-slim AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \

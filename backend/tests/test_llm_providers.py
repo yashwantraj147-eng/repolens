@@ -2,16 +2,15 @@
 
 import pytest
 import respx
-import httpx
 
 from app.config import Settings
 from app.services.llm import (
-    create_llm_provider,
     GeminiProvider,
     GroqProvider,
+    LocalProvider,
     OllamaProvider,
     OpenAIProvider,
-    LocalProvider,
+    create_llm_provider,
 )
 
 

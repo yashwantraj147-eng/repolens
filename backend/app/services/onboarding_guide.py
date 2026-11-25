@@ -4,7 +4,7 @@ Produces a contributor-friendly onboarding guide based on
 repository structure and metadata.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.config import Settings
 from app.models.schemas import RepoInfo
@@ -30,9 +30,9 @@ class OnboardingGuideGenerator:
     async def generate(
         self,
         repo_info: RepoInfo,
-        readme_content: Optional[str] = None,
-        file_tree: Optional[List[Dict[str, Any]]] = None,
-        languages: Optional[Dict[str, int]] = None,
+        readme_content: str | None = None,
+        file_tree: list[dict[str, Any]] | None = None,
+        languages: dict[str, int] | None = None,
     ) -> str:
         """Generate an onboarding guide for the repository.
 
@@ -54,9 +54,9 @@ class OnboardingGuideGenerator:
     def _generate_from_template(
         self,
         repo_info: RepoInfo,
-        readme_content: Optional[str],
-        file_tree: Optional[List[Dict[str, Any]]],
-        languages: Optional[Dict[str, int]],
+        readme_content: str | None,
+        file_tree: list[dict[str, Any]] | None,
+        languages: dict[str, int] | None,
     ) -> str:
         """Generate onboarding guide using templates and heuristics.
 
@@ -90,10 +90,10 @@ class OnboardingGuideGenerator:
         # Clone and setup
         sections.append("### Setup\n")
         sections.append("1. **Fork and clone the repository:**\n")
-        sections.append(f"```bash")
+        sections.append("```bash")
         sections.append(f"git clone https://github.com/YOUR_USERNAME/{repo_info.name}.git")
         sections.append(f"cd {repo_info.name}")
-        sections.append(f"```\n")
+        sections.append("```\n")
 
         # Language-specific setup
         setup_steps = self._get_setup_steps(repo_info, file_tree, languages)
@@ -102,8 +102,7 @@ class OnboardingGuideGenerator:
             sections.append(f"{step_num}. **{step_title}:**\n")
             if step_commands:
                 sections.append("```bash")
-                for cmd in step_commands:
-                    sections.append(cmd)
+                sections.extend(step_commands)
                 sections.append("```\n")
             step_num += 1
 
@@ -111,8 +110,7 @@ class OnboardingGuideGenerator:
         sections.append("### Project Structure\n")
         structure = self._describe_structure(file_tree)
         sections.append("```")
-        for line in structure:
-            sections.append(line)
+        sections.extend(structure)
         sections.append("```\n")
 
         # Running tests
@@ -120,8 +118,7 @@ class OnboardingGuideGenerator:
         if test_commands:
             sections.append("### Running Tests\n")
             sections.append("```bash")
-            for cmd in test_commands:
-                sections.append(cmd)
+            sections.extend(test_commands)
             sections.append("```\n")
 
         # Contributing workflow
@@ -146,8 +143,8 @@ class OnboardingGuideGenerator:
     def _detect_prerequisites(
         self,
         repo_info: RepoInfo,
-        file_tree: List[Dict[str, Any]],
-        languages: Dict[str, int],
+        file_tree: list[dict[str, Any]],
+        languages: dict[str, int],
     ) -> list[str]:
         """Detect required tools and prerequisites.
 
@@ -164,7 +161,7 @@ class OnboardingGuideGenerator:
 
         # Language-specific prerequisites
         lang = (repo_info.language or "").lower()
-        top_langs = set(l.lower() for l in languages.keys())
+        top_langs = {lang.lower() for lang in languages}
 
         if lang == "python" or "python" in top_langs or "requirements.txt" in paths:
             prereqs.append("Python 3.8+ with pip")
@@ -197,8 +194,8 @@ class OnboardingGuideGenerator:
     def _get_setup_steps(
         self,
         repo_info: RepoInfo,
-        file_tree: List[Dict[str, Any]],
-        languages: Dict[str, int],
+        file_tree: list[dict[str, Any]],
+        languages: dict[str, int],
     ) -> list[tuple[str, list[str]]]:
         """Get language-specific setup steps.
 
@@ -221,9 +218,7 @@ class OnboardingGuideGenerator:
             ]))
             if "requirements.txt" in paths:
                 steps.append(("Install dependencies", ["pip install -r requirements.txt"]))
-            elif "pyproject.toml" in paths:
-                steps.append(("Install dependencies", ["pip install -e '.[dev]'"]))
-            elif "setup.py" in paths:
+            elif "pyproject.toml" in paths or "setup.py" in paths:
                 steps.append(("Install dependencies", ["pip install -e '.[dev]'"]))
 
         if "package.json" in paths:
@@ -254,8 +249,8 @@ class OnboardingGuideGenerator:
 
     def _get_test_commands(
         self,
-        file_tree: List[Dict[str, Any]],
-        languages: Dict[str, int],
+        file_tree: list[dict[str, Any]],
+        languages: dict[str, int],
     ) -> list[str]:
         """Determine how to run tests for the project.
 
@@ -297,7 +292,7 @@ class OnboardingGuideGenerator:
         return commands
 
     def _describe_structure(
-        self, file_tree: List[Dict[str, Any]]
+        self, file_tree: list[dict[str, Any]]
     ) -> list[str]:
         """Create a simplified directory structure description.
 

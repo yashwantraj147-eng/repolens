@@ -1,7 +1,8 @@
 """Tests for the architecture diagram generator and onboarding / summary generators."""
 
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
 
 from app.config import Settings
 from app.models.schemas import RepoInfo
@@ -21,8 +22,8 @@ def sample_repo() -> RepoInfo:
         stars=1500,
         forks=120,
         open_issues=15,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
         default_branch="main",
         topics=["fastapi", "react", "analysis"],
         has_wiki=True,

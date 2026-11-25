@@ -5,7 +5,7 @@ diagram in Mermaid markup format.
 """
 
 import re
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, ClassVar
 
 from app.models.schemas import RepoInfo
 
@@ -18,7 +18,7 @@ class DiagramGenerator:
     """
 
     # Common entry points by language/framework
-    ENTRY_POINTS = {
+    ENTRY_POINTS: ClassVar[set[str]] = {
         "main.py", "app.py", "server.py", "index.py", "wsgi.py", "asgi.py",
         "manage.py", "run.py",
         "index.js", "index.ts", "server.js", "server.ts", "app.js", "app.ts",
@@ -31,7 +31,7 @@ class DiagramGenerator:
     }
 
     # Config files that indicate project structure
-    CONFIG_FILES = {
+    CONFIG_FILES: ClassVar[dict[str, str]] = {
         "package.json": "Node.js",
         "requirements.txt": "Python",
         "Pipfile": "Python",
@@ -46,7 +46,7 @@ class DiagramGenerator:
     }
 
     # Framework-specific directories
-    FRAMEWORK_DIRS = {
+    FRAMEWORK_DIRS: ClassVar[dict[str, str]] = {
         "src": "source",
         "lib": "library",
         "app": "application",
@@ -85,8 +85,8 @@ class DiagramGenerator:
     def generate(
         self,
         repo_info: RepoInfo,
-        file_tree: List[Dict[str, Any]],
-        languages: Optional[Dict[str, int]] = None,
+        file_tree: list[dict[str, Any]],
+        languages: dict[str, int] | None = None,
     ) -> str:
         """Generate a Mermaid architecture diagram for the repository.
 
@@ -119,8 +119,8 @@ class DiagramGenerator:
 
     def _detect_project_type(
         self,
-        file_tree: List[Dict[str, Any]],
-        languages: Dict[str, int],
+        file_tree: list[dict[str, Any]],
+        languages: dict[str, int],
     ) -> str:
         """Detect the project type from file structure and languages.
 
@@ -153,7 +153,7 @@ class DiagramGenerator:
 
         # Check for monorepo
         has_packages = any(
-            p.startswith("packages/") or p.startswith("apps/") or p.startswith("services/")
+            p.startswith(("packages/", "apps/", "services/"))
             for p in path_list
         )
 
@@ -172,8 +172,8 @@ class DiagramGenerator:
             return "project"
 
     def _get_top_level_dirs(
-        self, file_tree: List[Dict[str, Any]]
-    ) -> List[str]:
+        self, file_tree: list[dict[str, Any]]
+    ) -> list[str]:
         """Extract meaningful top-level directories.
 
         Args:
@@ -182,16 +182,15 @@ class DiagramGenerator:
         Returns:
             List of top-level directory names (excluding hidden dirs).
         """
-        dirs: Set[str] = set()
+        dirs: set[str] = set()
         for entry in file_tree:
             path = entry["path"]
             if "/" in path:
                 top = path.split("/")[0]
                 if not top.startswith(".") and entry.get("type") != "blob":
                     dirs.add(top)
-            elif entry.get("type") == "tree":
-                if not path.startswith("."):
-                    dirs.add(path)
+            elif entry.get("type") == "tree" and not path.startswith("."):
+                dirs.add(path)
 
         # Also add dirs inferred from blob paths
         for entry in file_tree:
@@ -203,8 +202,8 @@ class DiagramGenerator:
         return sorted(dirs)
 
     def _get_key_files(
-        self, file_tree: List[Dict[str, Any]]
-    ) -> List[str]:
+        self, file_tree: list[dict[str, Any]]
+    ) -> list[str]:
         """Identify key files (entry points, configs) in the repository.
 
         Args:
@@ -223,8 +222,8 @@ class DiagramGenerator:
         return key_files
 
     def _detect_infrastructure(
-        self, file_tree: List[Dict[str, Any]]
-    ) -> Dict[str, bool]:
+        self, file_tree: list[dict[str, Any]]
+    ) -> dict[str, bool]:
         """Detect infrastructure and tooling setup.
 
         Args:
@@ -246,9 +245,9 @@ class DiagramGenerator:
                 any(db in p for db in ["migrations/", "schema", "prisma/", "alembic/", "sequelize"])
                 for p in path_list
             ),
-            "docs": any(p.startswith("docs/") or p.startswith("doc/") for p in path_list),
+            "docs": any(p.startswith(("docs/", "doc/")) for p in path_list),
             "tests": any(
-                p.startswith("tests/") or p.startswith("test/") or p.startswith("__tests__/")
+                p.startswith(("tests/", "test/", "__tests__/"))
                 for p in path_list
             ),
         }
@@ -257,10 +256,10 @@ class DiagramGenerator:
         self,
         repo_info: RepoInfo,
         project_type: str,
-        top_dirs: List[str],
-        key_files: List[str],
-        infra: Dict[str, bool],
-        languages: Dict[str, int],
+        top_dirs: list[str],
+        key_files: list[str],
+        infra: dict[str, bool],
+        languages: dict[str, int],
     ) -> str:
         """Build the Mermaid diagram markup.
 
@@ -281,7 +280,7 @@ class DiagramGenerator:
         clean_name = re.sub(r'["\[\]\(\)\{\}]', '', repo_info.name)
         clean_lang = re.sub(r'["\[\]\(\)\{\}]', '', repo_info.language or "Multi-language")
         lines.append(f'    ROOT["{clean_name}<br/>{clean_lang} {project_type}"]')
-        lines.append(f'    style ROOT fill:#4f46e5,stroke:#3730a3,color:#fff')
+        lines.append('    style ROOT fill:#4f46e5,stroke:#3730a3,color:#fff')
 
         # Group directories by category
         source_dirs = []
@@ -346,8 +345,8 @@ class DiagramGenerator:
 
         if infra_items:
             # Deduplicate items by node_id while preserving order
-            seen_ids: Set[str] = set()
-            deduped_infra: List[tuple] = []
+            seen_ids: set[str] = set()
+            deduped_infra: list[tuple] = []
             for node_id, label in infra_items:
                 if node_id not in seen_ids:
                     seen_ids.add(node_id)
@@ -398,8 +397,8 @@ class DiagramGenerator:
                 lang_parts.append(f"{lang} {pct:.0f}%")
             lang_label = " • ".join(lang_parts)
             lines.append(f'    LANGS["{lang_label}"]')
-            lines.append(f'    style LANGS fill:#0f172a,stroke:#475569,color:#94a3b8')
-            lines.append(f'    ROOT -.- LANGS')
+            lines.append('    style LANGS fill:#0f172a,stroke:#475569,color:#94a3b8')
+            lines.append('    ROOT -.- LANGS')
 
         return "\n".join(lines)
 

@@ -1,16 +1,17 @@
 """Unit tests for RepoLens head-to-head repository comparison."""
 
-from datetime import datetime, timezone
-import pytest
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.models.enums import ScoreCategoryName
 from app.models.schemas import (
     AnalysisReport,
+    CompareRequest,
     HealthScore,
     RepoInfo,
     ScoreCategory,
-    CompareRequest,
 )
 from app.services.comparison_engine import ComparisonEngine
 
@@ -53,7 +54,7 @@ def create_mock_report(
             grade=HealthScore.compute_grade(score),
             breakdown=breakdown,
         ),
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
 
 

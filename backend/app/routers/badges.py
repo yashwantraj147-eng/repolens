@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 
 from app.config import get_settings
 from app.models.schemas import AnalyzeRequest
@@ -95,7 +95,7 @@ async def get_repo_badge(
             from app.routers.analyze import analyze_repo
             req = AnalyzeRequest(repo_url=f"https://github.com/{owner}/{repo}")
             report = await analyze_repo(req, response=Response())
-        except Exception as e:
+        except (HTTPException, OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
             logger.warning("Could not auto-generate report for badge %s/%s: %s", owner, repo, str(e))
             svg = generate_badge_svg(
                 label="repolens",

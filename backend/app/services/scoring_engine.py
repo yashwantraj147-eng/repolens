@@ -5,15 +5,14 @@ overall health score from 0 to 100.
 """
 
 import re
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from app.models.enums import ScoreCategoryName
 from app.models.schemas import HealthScore, RepoInfo, ScoreCategory
 
-
 # Category weights (must sum to 1.0)
-CATEGORY_WEIGHTS: Dict[ScoreCategoryName, float] = {
+CATEGORY_WEIGHTS: dict[ScoreCategoryName, float] = {
     ScoreCategoryName.README_QUALITY: 0.15,
     ScoreCategoryName.TEST_PRESENCE: 0.15,
     ScoreCategoryName.SECURITY_POSTURE: 0.15,
@@ -34,7 +33,7 @@ class ScoringEngine:
 
     def __init__(
         self,
-        weights: Optional[Dict[ScoreCategoryName, float]] = None,
+        weights: dict[ScoreCategoryName, float] | None = None,
     ) -> None:
         """Initialize the scoring engine.
 
@@ -47,10 +46,10 @@ class ScoringEngine:
     def calculate_score(
         self,
         repo_info: RepoInfo,
-        readme_content: Optional[str] = None,
-        file_tree: Optional[List[Dict[str, Any]]] = None,
-        recent_commits: Optional[List[Dict[str, Any]]] = None,
-        closed_issues: Optional[List[Dict[str, Any]]] = None,
+        readme_content: str | None = None,
+        file_tree: list[dict[str, Any]] | None = None,
+        recent_commits: list[dict[str, Any]] | None = None,
+        closed_issues: list[dict[str, Any]] | None = None,
     ) -> HealthScore:
         """Calculate the overall health score for a repository.
 
@@ -72,7 +71,7 @@ class ScoringEngine:
         file_paths = [entry["path"] for entry in file_tree]
 
         # Calculate each category
-        breakdown: Dict[ScoreCategoryName, ScoreCategory] = {
+        breakdown: dict[ScoreCategoryName, ScoreCategory] = {
             ScoreCategoryName.README_QUALITY: self.score_readme_quality(
                 readme_content
             ),
@@ -115,7 +114,7 @@ class ScoringEngine:
         )
 
     def score_readme_quality(
-        self, readme_content: Optional[str]
+        self, readme_content: str | None
     ) -> ScoreCategory:
         """Score the quality of the repository README.
 
@@ -233,7 +232,7 @@ class ScoringEngine:
         )
 
     def score_commit_activity(
-        self, recent_commits: List[Dict[str, Any]]
+        self, recent_commits: list[dict[str, Any]]
     ) -> ScoreCategory:
         """Score recent commit activity.
 
@@ -271,10 +270,8 @@ class ScoringEngine:
                 latest = recent_commits[0]
                 commit_date_str = latest.get("commit", {}).get("committer", {}).get("date", "")
                 if commit_date_str:
-                    commit_date = datetime.fromisoformat(
-                        commit_date_str.replace("Z", "+00:00")
-                    )
-                    days_since = (datetime.now(timezone.utc) - commit_date).days
+                    commit_date = datetime.fromisoformat(commit_date_str)
+                    days_since = (datetime.now(UTC) - commit_date).days
                     if days_since <= 7:
                         score = min(score + 10, 100)
                         findings.append(f"Last commit {days_since} day(s) ago — recent activity bonus")
@@ -290,7 +287,7 @@ class ScoringEngine:
         )
 
     def score_issue_response_time(
-        self, closed_issues: List[Dict[str, Any]]
+        self, closed_issues: list[dict[str, Any]]
     ) -> ScoreCategory:
         """Score issue response time based on closed issues.
 
@@ -313,12 +310,8 @@ class ScoringEngine:
         response_times_hours: list[float] = []
         for issue in closed_issues:
             try:
-                created = datetime.fromisoformat(
-                    issue["created_at"].replace("Z", "+00:00")
-                )
-                closed = datetime.fromisoformat(
-                    issue["closed_at"].replace("Z", "+00:00")
-                )
+                created = datetime.fromisoformat(issue["created_at"])
+                closed = datetime.fromisoformat(issue["closed_at"])
                 delta = (closed - created).total_seconds() / 3600  # hours
                 response_times_hours.append(delta)
             except (ValueError, KeyError, TypeError):
@@ -364,7 +357,7 @@ class ScoringEngine:
         )
 
     def score_test_presence(
-        self, file_paths: List[str]
+        self, file_paths: list[str]
     ) -> ScoreCategory:
         """Score the presence and coverage of tests.
 
@@ -467,7 +460,7 @@ class ScoringEngine:
         )
 
     def score_license(
-        self, repo_info: RepoInfo, file_paths: List[str]
+        self, repo_info: RepoInfo, file_paths: list[str]
     ) -> ScoreCategory:
         """Score license presence and type.
 
@@ -505,7 +498,7 @@ class ScoringEngine:
             )
 
     def score_documentation(
-        self, repo_info: RepoInfo, file_paths: List[str]
+        self, repo_info: RepoInfo, file_paths: list[str]
     ) -> ScoreCategory:
         """Score documentation quality and presence.
 
@@ -529,7 +522,7 @@ class ScoringEngine:
 
         # docs/ directory
         has_docs = any(
-            p.startswith("docs/") or p.startswith("doc/") or p == "docs" or p == "doc"
+            p.startswith(("docs/", "doc/")) or p in ("docs", "doc")
             for p in lower_paths
         )
         if has_docs:
@@ -582,7 +575,7 @@ class ScoringEngine:
             details="; ".join(findings),
         )
 
-    def score_ci_setup(self, file_paths: List[str]) -> ScoreCategory:
+    def score_ci_setup(self, file_paths: list[str]) -> ScoreCategory:
         """Score CI/CD setup presence.
 
         Checks for:
@@ -636,8 +629,8 @@ class ScoringEngine:
 
     def score_security_posture(
         self,
-        file_paths: List[str],
-        readme_content: Optional[str] = None,
+        file_paths: list[str],
+        readme_content: str | None = None,
     ) -> ScoreCategory:
         """Evaluate repository security posture and supply chain hygiene.
 

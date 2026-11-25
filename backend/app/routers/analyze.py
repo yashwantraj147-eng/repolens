@@ -2,14 +2,14 @@
 
 import asyncio
 import logging
+import sqlite3
 import uuid
-from datetime import datetime, timezone
-from typing import Dict, Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Response
 
 from app.config import get_settings
-from app.models.schemas import AnalyzeRequest, AnalysisReport, ErrorResponse
+from app.models.schemas import AnalysisReport, AnalyzeRequest, ErrorResponse
 from app.services.github_client import (
     GitHubClient,
     GitHubClientError,
@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["analysis"])
 
 # In-memory report cache for backward compatibility
-_report_cache: Dict[str, AnalysisReport] = {}
+_report_cache: dict[str, AnalysisReport] = {}
 
 
-def get_report_cache() -> Dict[str, AnalysisReport]:
+def get_report_cache() -> dict[str, AnalysisReport]:
     """Get the in-memory report cache.
 
     Returns:
@@ -50,7 +50,7 @@ def get_report_cache() -> Dict[str, AnalysisReport]:
 )
 async def analyze_repo(
     request: AnalyzeRequest,
-    response: Response = Response(),
+    response: Response,
 ) -> AnalysisReport:
     """Analyze a public GitHub repository.
 
@@ -114,10 +114,10 @@ async def analyze_repo(
             )
 
             # Import services lazily to avoid circular imports during startup
-            from app.services.scoring_engine import ScoringEngine
             from app.services.diagram_generator import DiagramGenerator
-            from app.services.summary_generator import SummaryGenerator
             from app.services.onboarding_guide import OnboardingGuideGenerator
+            from app.services.scoring_engine import ScoringEngine
+            from app.services.summary_generator import SummaryGenerator
 
             # Step 3: Compute health score and architecture diagram
             scoring_engine = ScoringEngine()
@@ -163,7 +163,7 @@ async def analyze_repo(
                 architecture_diagram=architecture_diagram,
                 onboarding_guide=onboarding_guide,
                 health_score=health_score,
-                generated_at=datetime.now(timezone.utc),
+                generated_at=datetime.now(UTC),
             )
 
             # Step 6: Persist report in SQLite store and in-memory cache
@@ -187,7 +187,7 @@ async def analyze_repo(
             raise HTTPException(status_code=429, detail=str(e))
         except GitHubClientError as e:
             logger.error("GitHub API error analyzing %s/%s: %s", owner, repo, str(e))
-            raise HTTPException(status_code=502, detail=f"GitHub API error: {str(e)}")
-        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"GitHub API error: {e!s}")
+        except (OSError, sqlite3.Error, ValueError, RuntimeError, TypeError, KeyError) as e:
             logger.error("Unexpected error analyzing %s/%s: %s", owner, repo, str(e))
             raise HTTPException(status_code=500, detail="An unexpected error occurred during analysis.")
